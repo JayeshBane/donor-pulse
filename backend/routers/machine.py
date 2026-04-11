@@ -442,3 +442,49 @@ async def bulk_add_machines(
     except Exception as e:
         logger.error(f"Error in bulk add: {e}")
         raise HTTPException(status_code=500, detail="Failed to complete bulk add")
+    
+@router.patch("/{machine_id}/toggle-active")
+async def toggle_machine_active(
+    machine_id: str,
+    hospital: dict = Depends(get_verified_hospital),
+    db=Depends(get_db)
+):
+    """Toggle machine active status (activate/deactivate)"""
+    try:
+        if not ObjectId.is_valid(machine_id):
+            raise HTTPException(status_code=400, detail="Invalid machine ID")
+        
+        # Verify machine belongs to hospital
+        machine = await db.machines.find_one({
+            "_id": ObjectId(machine_id),
+            "hospital_id": hospital["id"]
+        })
+        
+        if not machine:
+            raise HTTPException(status_code=404, detail="Machine not found")
+        
+        # Toggle is_active
+        new_status = not machine.get("is_active", True)
+        
+        await db.machines.update_one(
+            {"_id": ObjectId(machine_id)},
+            {
+                "$set": {
+                    "is_active": new_status,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        logger.info(f"Machine {machine_id} active status toggled to {new_status}")
+        
+        return {
+            "message": f"Machine {'activated' if new_status else 'deactivated'}",
+            "is_active": new_status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling machine active: {e}")
+        raise HTTPException(status_code=500, detail="Failed to toggle machine status")

@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Plus, Settings, Activity, AlertCircle, CheckCircle } from 'lucide-react'
+import { 
+  Plus, Settings, Activity, AlertCircle, CheckCircle, 
+  Power, PowerOff, Edit, Trash2 
+} from 'lucide-react'
 import axios from 'axios'
 
 interface Machine {
@@ -17,6 +20,8 @@ interface Machine {
   floor?: string
   room?: string
   is_active: boolean
+  operating_start: string
+  operating_end: string
 }
 
 export default function HospitalMachinesPage() {
@@ -33,7 +38,10 @@ export default function HospitalMachinesPage() {
     floor: '',
     room: '',
     operating_start: '09:00',
-    operating_end: '17:00'
+    operating_end: '17:00',
+    max_daily_donations: 15,
+    slot_duration_minutes: 30,
+    buffer_minutes: 15
   })
 
   useEffect(() => {
@@ -80,7 +88,10 @@ export default function HospitalMachinesPage() {
         floor: '',
         room: '',
         operating_start: '09:00',
-        operating_end: '17:00'
+        operating_end: '17:00',
+        max_daily_donations: 15,
+        slot_duration_minutes: 30,
+        buffer_minutes: 15
       })
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Failed to add machine')
@@ -98,6 +109,21 @@ export default function HospitalMachinesPage() {
       fetchMachines()
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Failed to update status')
+    }
+  }
+
+  const toggleMachineActive = async (machineId: string, currentActive: boolean) => {
+    try {
+      const token = localStorage.getItem('access_token')
+      await axios.patch(
+        `http://localhost:8000/api/v1/machines/${machineId}/toggle-active`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      alert(`Machine ${currentActive ? 'deactivated' : 'activated'} successfully`)
+      fetchMachines()
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Failed to toggle machine status')
     }
   }
 
@@ -133,7 +159,7 @@ export default function HospitalMachinesPage() {
       {/* Add Machine Form Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Add New Machine</h2>
             <div className="space-y-4">
               <Input
@@ -202,18 +228,32 @@ export default function HospitalMachinesPage() {
                 onChange={(e) => setNewMachine({...newMachine, room: e.target.value})}
                 placeholder="e.g., Room 101"
               />
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Input
-                  label="Operating Start"
+                  label="Start Time"
                   type="time"
                   value={newMachine.operating_start}
                   onChange={(e) => setNewMachine({...newMachine, operating_start: e.target.value})}
                 />
                 <Input
-                  label="Operating End"
+                  label="End Time"
                   type="time"
                   value={newMachine.operating_end}
                   onChange={(e) => setNewMachine({...newMachine, operating_end: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  label="Slot Duration (min)"
+                  type="number"
+                  value={newMachine.slot_duration_minutes}
+                  onChange={(e) => setNewMachine({...newMachine, slot_duration_minutes: parseInt(e.target.value)})}
+                />
+                <Input
+                  label="Buffer Time (min)"
+                  type="number"
+                  value={newMachine.buffer_minutes}
+                  onChange={(e) => setNewMachine({...newMachine, buffer_minutes: parseInt(e.target.value)})}
                 />
               </div>
             </div>
@@ -240,70 +280,96 @@ export default function HospitalMachinesPage() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {machines.map((machine) => (
-            <Card key={machine._id} className="hover:shadow-lg transition-shadow">
+            <Card key={machine._id} className={`hover:shadow-lg transition-shadow ${!machine.is_active ? 'opacity-60' : ''}`}>
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-semibold">{machine.name}</h3>
                   <p className="text-sm text-gray-500">ID: {machine.machine_id}</p>
                 </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => toggleMachineActive(machine._id, machine.is_active)}
+                    className={`p-1 rounded ${machine.is_active ? 'text-green-600 hover:text-green-800' : 'text-gray-400 hover:text-gray-600'}`}
+                    title={machine.is_active ? 'Deactivate' : 'Activate'}
+                  >
+                    {machine.is_active ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center mb-3">
                 <span className={`px-2 py-1 rounded-full text-xs flex items-center gap-1 ${getStatusColor(machine.status)}`}>
                   {getStatusIcon(machine.status)}
                   {machine.status.replace('_', ' ').toUpperCase()}
                 </span>
+                <span className={`text-xs ${machine.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                  {machine.is_active ? 'Active' : 'Inactive'}
+                </span>
               </div>
               
-              <div className="space-y-2 mb-4">
-                <p className="text-sm">
+              <div className="space-y-2 mb-4 text-sm">
+                <p>
                   <span className="font-medium">Type:</span> {machine.machine_type.replace('_', ' ').toUpperCase()}
                 </p>
-                <p className="text-sm">
+                <p>
                   <span className="font-medium">Donation Types:</span> {machine.donation_types.map(t => t.replace('_', ' ').toUpperCase()).join(', ')}
                 </p>
+                <p>
+                  <span className="font-medium">Hours:</span> {machine.operating_start} - {machine.operating_end}
+                </p>
                 {machine.floor && (
-                  <p className="text-sm">
+                  <p>
                     <span className="font-medium">Location:</span> {machine.floor} {machine.room ? `- ${machine.room}` : ''}
                   </p>
                 )}
               </div>
               
-              <div className="flex gap-2">
-                {machine.status !== 'available' && (
-                  <Button 
-                    size="sm" 
-                    variant="success"
-                    onClick={() => updateMachineStatus(machine._id, 'available')}
-                  >
-                    Mark Available
-                  </Button>
-                )}
-                {machine.status !== 'in_use' && (
-                  <Button 
-                    size="sm" 
-                    variant="primary"
-                    onClick={() => updateMachineStatus(machine._id, 'in_use')}
-                  >
-                    Start Donation
-                  </Button>
-                )}
-                {machine.status !== 'maintenance' && (
-                  <Button 
-                    size="sm" 
-                    variant="danger"
-                    onClick={() => updateMachineStatus(machine._id, 'maintenance')}
-                  >
-                    Maintenance
-                  </Button>
-                )}
-                {machine.status !== 'cleaning' && (
-                  <Button 
-                    size="sm" 
-                    variant="secondary"
-                    onClick={() => updateMachineStatus(machine._id, 'cleaning')}
-                  >
-                    Cleaning
-                  </Button>
-                )}
-              </div>
+              {machine.is_active && (
+                <div className="flex gap-2 flex-wrap">
+                  {machine.status !== 'available' && (
+                    <Button 
+                      size="sm" 
+                      variant="success"
+                      onClick={() => updateMachineStatus(machine._id, 'available')}
+                    >
+                      Mark Available
+                    </Button>
+                  )}
+                  {machine.status !== 'in_use' && (
+                    <Button 
+                      size="sm" 
+                      variant="primary"
+                      onClick={() => updateMachineStatus(machine._id, 'in_use')}
+                    >
+                      Start Donation
+                    </Button>
+                  )}
+                  {machine.status !== 'maintenance' && (
+                    <Button 
+                      size="sm" 
+                      variant="danger"
+                      onClick={() => updateMachineStatus(machine._id, 'maintenance')}
+                    >
+                      Maintenance
+                    </Button>
+                  )}
+                  {machine.status !== 'cleaning' && (
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={() => updateMachineStatus(machine._id, 'cleaning')}
+                    >
+                      Cleaning
+                    </Button>
+                  )}
+                </div>
+              )}
+              
+              {!machine.is_active && (
+                <div className="text-center text-gray-500 text-sm mt-2">
+                  Machine is deactivated. Click the power button to activate.
+                </div>
+              )}
             </Card>
           ))}
         </div>

@@ -7,6 +7,11 @@ from .machine import (
     MachineMaintenanceLog, MachineStatusUpdate, MachineSchedule,
     BulkMachineCreate
 )
+from .appointment import (
+    AppointmentType, AppointmentStatus,
+    AppointmentBase, AppointmentCreate, AppointmentInDB,
+    TimeSlot, WalkInCreate, AppointmentResponse, WaitlistEntry
+)
 
 __all__ = [
     "DonorCreate",
@@ -31,5 +36,14 @@ __all__ = [
     "MachineMaintenanceLog",
     "MachineStatusUpdate",
     "MachineSchedule",
-    "BulkMachineCreate"
+    "BulkMachineCreate",
+    "AppointmentType",
+    "AppointmentStatus",
+    "AppointmentBase",
+    "AppointmentCreate",
+    "AppointmentInDB",
+    "TimeSlot",
+    "WalkInCreate",
+    "AppointmentResponse",
+    "WaitlistEntry"
 ]

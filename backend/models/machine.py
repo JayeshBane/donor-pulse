@@ -26,31 +26,22 @@ class MachineMaintenanceType(str, Enum):
     CALIBRATION = "calibration"
 
 class MachineBase(BaseModel):
-    machine_id: str  # Display ID like "M-001"
+    machine_id: str
     machine_type: MachineType
-    name: str  # Display name like "Station A"
+    name: str
     description: Optional[str] = None
-    
-    # Capabilities
-    donation_types: List[str]  # Which donation types this machine supports
+    donation_types: List[str]
     max_daily_donations: int = 10
-    slot_duration_minutes: int = 30  # Time per donation slot
-    buffer_minutes: int = 15  # Cleaning time between donations
-    
-    # Status
+    slot_duration_minutes: int = 30
+    buffer_minutes: int = 15
     status: MachineStatus = MachineStatus.AVAILABLE
     current_donor_id: Optional[str] = None
     current_appointment_id: Optional[str] = None
-    
-    # Location
     floor: Optional[str] = None
     room: Optional[str] = None
-    
-    # Operational hours
-    operating_start: str = "09:00"  # HH:MM format
-    operating_end: str = "17:00"    # HH:MM format
-    
-    is_active: bool = True
+    operating_start: str = "09:00"
+    operating_end: str = "17:00"
+    is_active: bool = True  # Default to True, but hospital can change
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -91,6 +91,19 @@ async def create_indexes():
 
         await db.db.admins.create_index("username", unique=True)
         await db.db.admins.create_index("email", unique=True)
+
+        # Appointment indexes
+        await db.db.appointments.create_index("hospital_id")
+        await db.db.appointments.create_index("donor_id")
+        await db.db.appointments.create_index("machine_id")
+        await db.db.appointments.create_index("booking_token", unique=True)
+        await db.db.appointments.create_index([("hospital_id", 1), ("appointment_date", 1)])
+        await db.db.appointments.create_index("status")
+        await db.db.appointments.create_index("appointment_date")
+
+        # Waitlist indexes
+        await db.db.waitlist.create_index("hospital_id")
+        await db.db.waitlist.create_index("expires_at")
         
         logger.info("✅ Database indexes created successfully")
         

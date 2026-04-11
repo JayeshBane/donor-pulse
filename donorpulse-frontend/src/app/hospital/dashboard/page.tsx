@@ -11,7 +11,8 @@ import {
   PlusCircle,
   CheckCircle,
   AlertCircle,
-  Clock
+  Clock,
+  Calendar
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
@@ -221,6 +222,17 @@ export default function HospitalDashboardPage() {
               </div>
             </Card>
           </Link>
+
+          
+        <Link href="/hospital/appointments">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <div className="text-center">
+              <Calendar className="h-12 w-12 text-purple-600 mx-auto mb-3" />
+              <h3 className="font-semibold text-lg mb-2">Manage Appointments</h3>
+              <p className="text-gray-600 text-sm">View and manage donor appointments</p>
+            </div>
+          </Card>
+        </Link>
         </div>
 
         {/* Machines List */}

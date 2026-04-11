@@ -8,7 +8,7 @@ from datetime import datetime
 
 from config import settings
 from database import connect_to_mongo, close_mongo_connection
-from routers import donor, hospital, auth, sms, machine, admin
+from routers import donor, hospital, auth, sms, machine, admin, appointment
 from middleware.rate_limit import rate_limit_middleware
 
 logging.basicConfig(
@@ -95,6 +95,7 @@ app.include_router(auth.router)
 app.include_router(sms.router)
 app.include_router(machine.router) 
 app.include_router(admin.router)
+app.include_router(appointment.router)
 
 if __name__ == "__main__":
     import uvicorn
