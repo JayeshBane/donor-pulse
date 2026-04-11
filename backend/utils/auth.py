@@ -21,7 +21,11 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError:
+        logger.warning("Password verification failed because the supplied password exceeded bcrypt limits")
+        return False
 
 def create_jwt_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """Create JWT token with expiration"""

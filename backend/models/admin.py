@@ -1,5 +1,5 @@
 # backend\models\admin.py
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, validator
 from typing import Optional
 from datetime import datetime
 from enum import Enum
@@ -19,6 +19,14 @@ class AdminBase(BaseModel):
 class AdminCreate(AdminBase):
     password: str
 
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('Password must be at least 6 characters')
+        if len(v.encode('utf-8')) > 72:
+            raise ValueError('Password must be 72 bytes or fewer')
+        return v
+
 class AdminInDB(AdminBase):
     id: str = Field(alias="_id")
     hashed_password: str
@@ -28,6 +36,12 @@ class AdminInDB(AdminBase):
 class AdminLogin(BaseModel):
     username: str
     password: str
+
+    @validator('password')
+    def validate_password(cls, v):
+        if len(v.encode('utf-8')) > 72:
+            raise ValueError('Password must be 72 bytes or fewer')
+        return v
 
 class AdminResponse(BaseModel):
     id: str
