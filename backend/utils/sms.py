@@ -1,3 +1,4 @@
+import re
 import logging
 from config import settings
 
@@ -5,29 +6,56 @@ logger = logging.getLogger(__name__)
 
 # Try to import Twilio, but don't fail if not installed
 try:
-    from twilio.rest import Client
-    TWILIO_AVAILABLE = True
+    from vonage import Auth, Vonage
+    from vonage_messages import Sms
+    VONAGE_AVAILABLE = True
 except ImportError:
-    TWILIO_AVAILABLE = False
-    logger.warning("Twilio not installed. SMS will be logged only.")
+    VONAGE_AVAILABLE = False
+    logger.warning("Vonage not installed. Message will be logged only.")
 
 def send_sms(to_phone: str, message: str):
-    """Send SMS using Twilio (falls back to logging if not configured)"""
+    """Send Whatsapp message using Vonage (falls back to logging if not configured)"""
     
-    if TWILIO_AVAILABLE and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_phone_number:
+    # if TWILIO_AVAILABLE and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_phone_number:
+    #     try:
+    #         client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+    #         sms_message = client.messages.create(
+    #             body=message,
+    #             from_=settings.twilio_phone_number,
+    #             to=to_phone
+    #         )
+    #         logger.info(f"✅ SMS sent to {to_phone}: {sms_message.sid}")
+    #         return sms_message.sid
+    #     except Exception as e:
+    #         logger.error(f"Failed to send SMS via Twilio: {e}")
+    #         logger.info(f"📱 SMS to {to_phone}: {message}")
+    #         return None
+
+    if VONAGE_AVAILABLE and settings.vonage_api_key and settings.vonage_whatsapp_number:
         try:
-            client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
-            sms_message = client.messages.create(
-                body=message,
-                from_=settings.twilio_phone_number,
-                to=to_phone
+            client = Vonage(
+                Auth(
+                    api_key=settings.vonage_api_key,
+                    api_secret=settings.vonage_api_secret,
+                )
             )
-            logger.info(f"✅ SMS sent to {to_phone}: {sms_message.sid}")
-            return sms_message.sid
+
+            numeric_to_phone = re.sub(r'[^0-9]', '', to_phone)            
+
+            response = client.messages.send(
+                Sms(
+                    to=numeric_to_phone,
+                    from_=settings.vonage_whatsapp_number,
+                    text=message,
+                )
+            )
+
+            return response
         except Exception as e:
-            logger.error(f"Failed to send SMS via Twilio: {e}")
+            logger.error(f"Failed to send Whatsapp message via Vonage: {e}")
             logger.info(f"📱 SMS to {to_phone}: {message}")
             return None
+    
     
     # Development mode - just log
     logger.info(f"📱 SMS to {to_phone}: {message}")
