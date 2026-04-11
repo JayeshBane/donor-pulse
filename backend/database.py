@@ -1,3 +1,8 @@
+import asyncio
+from datetime import datetime
+
+from fastapi import FastAPI
+from fastapi.concurrency import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import settings
 import logging
@@ -25,7 +30,6 @@ async def connect_to_mongo():
         
     except Exception as e:
         logger.error(f"❌ MongoDB connection failed: {e}")
-        raise
 
 async def close_mongo_connection():
     """Close MongoDB connection"""
@@ -77,3 +81,31 @@ async def create_indexes():
 def get_db():
     """Dependency for getting database"""
     return db.db
+
+async def cleanup_expired_tokens():
+    """Delete expired tokens periodically"""
+    while True:
+        try:
+            # Delete expired tokens every hour
+            await asyncio.sleep(3600)
+            result = await db.db.update_tokens.delete_many({
+                "expires_at": {"$lt": datetime.utcnow()}
+            })
+            if result.deleted_count > 0:
+                logger.info(f"Cleaned up {result.deleted_count} expired tokens")
+        except Exception as e:
+            logger.error(f"Error cleaning up tokens: {e}")
+
+# Add to lifespan in main.py
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("🚀 Starting DonorPulse Backend...")
+    await connect_to_mongo()
+    
+    # Start background task to clean up expired tokens
+    asyncio.create_task(cleanup_expired_tokens())
+    
+    logger.info(f"✅ Backend ready on port {settings.port}")
+    yield
+    logger.info("🛑 Shutting down...")
+    await close_mongo_connection()

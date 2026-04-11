@@ -1,3 +1,4 @@
+# backend/models/token.py
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
@@ -9,21 +10,21 @@ class TokenType(str, Enum):
     LOCATION = "location"
 
 class UpdateToken(BaseModel):
-    """Token for donor profile updates (magic link)"""
-    hashed_token: str  # Changed from token to hashed_token
+    """Token for donor profile updates (magic link) - deleted after use"""
+    hashed_token: str
     donor_id: str
     token_type: TokenType = TokenType.MAGIC_LINK
     expires_at: datetime
-    is_used: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # No is_used field - tokens are deleted instead
 
 class PasswordResetToken(BaseModel):
-    """Token for password reset"""
-    hashed_token: str  # Changed from token to hashed_token
+    """Token for password reset - deleted after use"""
+    hashed_token: str
     hospital_id: str
     expires_at: datetime
-    is_used: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # No is_used field - tokens are deleted instead
 
 class RateLimit(BaseModel):
     """Rate limiting for donor updates"""

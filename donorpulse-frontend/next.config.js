@@ -10,7 +10,6 @@ const nextConfig = {
     ],
   },
   reactStrictMode: true,
-  // Remove rewrites - we'll use direct API calls
 }
 
 module.exports = nextConfig

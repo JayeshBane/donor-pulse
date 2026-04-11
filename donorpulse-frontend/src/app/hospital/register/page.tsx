@@ -1,3 +1,4 @@
+// donorpulse-frontend\src\app\hospital\register\page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -6,7 +7,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Building2, Mail, Phone, User, Lock, MapPin } from 'lucide-react'
-import axios from 'axios'
+import { hospitalAPI } from '@/lib/api'
+import { useRouter } from 'next/navigation'
 
 interface HospitalFormData {
   name: string
@@ -23,10 +25,13 @@ interface HospitalFormData {
 
 export default function HospitalRegisterPage() {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
   const { register, handleSubmit, formState: { errors } } = useForm<HospitalFormData>()
 
   const onSubmit = async (data: HospitalFormData) => {
     setLoading(true)
+    setError(null)
     try {
       const payload = {
         name: data.name,
@@ -43,13 +48,11 @@ export default function HospitalRegisterPage() {
         }
       }
       
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
-      const response = await axios.post(`${API_URL}/hospitals/register`, payload)
-      
-      alert(`Hospital registered successfully!\n\nAwaiting admin verification.\nID: ${response.data.hospital_id}`)
-      window.location.href = '/hospital/login'
+      const response = await hospitalAPI.register(payload)
+      alert(`Hospital registered successfully!\n\nAwaiting admin verification.\nID: ${response.hospital_id}`)
+      router.push('/hospital/login')
     } catch (error: any) {
-      alert(error.response?.data?.detail || 'Registration failed')
+      setError(error.response?.data?.detail || 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -58,6 +61,11 @@ export default function HospitalRegisterPage() {
   return (
     <div className="max-w-3xl mx-auto p-6">
       <Card title="Hospital Registration">
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="flex items-center space-x-2 mb-2">
             <Building2 className="h-5 w-5 text-gray-500" />

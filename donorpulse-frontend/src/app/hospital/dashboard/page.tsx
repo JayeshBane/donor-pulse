@@ -1,30 +1,33 @@
+// donorpulse-frontend\src\app\hospital\dashboard\page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Activity, Users, CheckCircle, LogOut } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function HospitalDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [hospital, setHospital] = useState<any>(null)
+  const router = useRouter()
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
     const hospitalData = localStorage.getItem('hospital')
     
     if (!token) {
-      window.location.href = '/hospital/login'
+      router.push('/hospital/login')
     } else {
       setHospital(JSON.parse(hospitalData || '{}'))
       setLoading(false)
     }
-  }, [])
+  }, [router])
 
   const handleLogout = () => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('hospital')
-    window.location.href = '/'
+    router.push('/')
   }
 
   if (loading) {
@@ -50,6 +53,9 @@ export default function HospitalDashboardPage() {
           Welcome, <strong>{hospital?.name || 'Hospital'}</strong>!
           {!hospital?.is_verified && (
             <span className="ml-2 text-yellow-600">(Pending Admin Verification)</span>
+          )}
+          {hospital?.is_verified && (
+            <span className="ml-2 text-green-600">(Verified Account)</span>
           )}
         </p>
       </div>

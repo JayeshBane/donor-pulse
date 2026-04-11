@@ -1,3 +1,4 @@
+// donorpulse-frontend/src/components/donor/DonorRegistrationForm.tsx (Fixed)
 'use client'
 
 import React, { useState } from 'react'
@@ -19,8 +20,8 @@ const donorRegistrationSchema = z.object({
     blood_type: z.enum(['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+']),
     donation_types: z.array(z.string()).min(1, 'Select at least one donation type'),
     weight_kg: z.number().min(50, 'Weight must be at least 50kg'),
-    illnesses: z.array(z.string()),
-    medications: z.array(z.string()),
+    illnesses: z.string().optional(),
+    medications: z.string().optional(),
     last_donation_date: z.string().optional(),
   }),
   
@@ -30,15 +31,10 @@ const donorRegistrationSchema = z.object({
     address: z.string().min(5, 'Address is required'),
     city: z.string().min(2, 'City is required'),
     pin_code: z.string().min(3, 'Pin code is required'),
-    lat: z.number().optional(),
-    lng: z.number().optional(),
   }),
   
   preferences: z.object({
-    contact_method: z.string(),
-    availability: z.array(z.enum(['Morning', 'Afternoon', 'Evening', 'Night'])),
-    language: z.string(),
-    notify_types: z.array(z.enum(['Routine', 'Urgent', 'Critical', 'SOS'])),
+    availability: z.array(z.string()),
     transport_available: z.boolean(),
   }),
 })
@@ -48,30 +44,26 @@ type FormData = z.infer<typeof donorRegistrationSchema>
 const bloodTypes = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'] as const
 const donationTypes = ['whole_blood', 'platelets', 'plasma', 'double_rbc']
 const availabilityOptions = ['Morning', 'Afternoon', 'Evening', 'Night'] as const
-const notifyOptions = ['Routine', 'Urgent', 'Critical', 'SOS'] as const
 
 export const DonorRegistrationForm: React.FC = () => {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
   
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>({
     resolver: zodResolver(donorRegistrationSchema),
     defaultValues: {
       medical: {
         donation_types: ['whole_blood'],
-        illnesses: [],
-        medications: []
       },
       preferences: {
-        contact_method: 'sms',
         availability: [],
-        language: 'en',
-        notify_types: ['Routine', 'Urgent', 'Critical', 'SOS'],
         transport_available: false
       }
     }
   })
+  
   
   const onSubmit = async (data: FormData) => {
     setLoading(true)
@@ -87,8 +79,8 @@ export const DonorRegistrationForm: React.FC = () => {
           blood_type: data.medical.blood_type,
           donation_types: data.medical.donation_types,
           weight_kg: data.medical.weight_kg,
-          illnesses: data.medical.illnesses || [],
-          medications: data.medical.medications || [],
+          illnesses: data.medical.illnesses ? data.medical.illnesses.split(',').map(s => s.trim()).filter(s => s) : [],
+          medications: data.medical.medications ? data.medical.medications.split(',').map(s => s.trim()).filter(s => s) : [],
           last_donation_date: data.medical.last_donation_date || null
         },
         location: {
@@ -97,27 +89,34 @@ export const DonorRegistrationForm: React.FC = () => {
           address: data.location.address,
           city: data.location.city,
           pin_code: data.location.pin_code,
-          lat: data.location.lat || null,
-          lng: data.location.lng || null
         },
         preferences: {
-          contact_method: data.preferences.contact_method,
+          contact_method: "sms",
           availability: data.preferences.availability,
-          language: data.preferences.language,
-          notify_types: data.preferences.notify_types,
+          language: "en",
+          notify_types: ["Routine", "Urgent", "Critical", "SOS"],
           transport_available: data.preferences.transport_available
         }
       }
       
+      console.log('Sending registration data:', JSON.stringify(formattedData, null, 2))
+      
       const response = await donorAPI.register(formattedData)
+      
+      console.log('Registration response:', response)
       
       alert(`✅ Donor registered successfully!\n\nA welcome SMS has been sent to ${data.location.phone}\n\nUse SMS commands to manage your profile:\n• Send STATUS to check eligibility\n• Send UPDATE to get profile update link\n• Send HELP for all commands`)
       
       window.location.href = '/'
     } catch (error: any) {
+      console.error('Registration error:', error)
       const errorMessage = error.response?.data?.detail || error.message || 'Registration failed'
       setError(errorMessage)
-      alert(`❌ Registration failed: ${errorMessage}`)
+      
+      // Show detailed error for debugging
+      if (error.response?.data) {
+        setDebugInfo(`API Error: ${JSON.stringify(error.response.data)}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -136,6 +135,13 @@ export const DonorRegistrationForm: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <Card title="Donor Registration">
+        {/* Debug info */}
+        {debugInfo && (
+          <div className={`mb-4 p-3 rounded-lg ${debugInfo.includes('✅') ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+            {debugInfo}
+          </div>
+        )}
+        
         <div className="mb-8">
           <div className="flex justify-between">
             {[1, 2, 3, 4].map((s) => (
@@ -169,7 +175,7 @@ export const DonorRegistrationForm: React.FC = () => {
               <Input label="Age" type="number" {...register('age', { valueAsNumber: true })} error={errors.age?.message} />
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                <select {...register('gender')} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <select {...register('gender')} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -185,10 +191,11 @@ export const DonorRegistrationForm: React.FC = () => {
             <div className="space-y-4">
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Blood Type</label>
-                <select {...register('medical.blood_type')} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                <select {...register('medical.blood_type')} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select Blood Type</option>
                   {bloodTypes.map((bt) => (<option key={bt} value={bt}>{bt}</option>))}
                 </select>
+                {errors.medical?.blood_type && <p className="mt-1 text-sm text-red-600">{errors.medical.blood_type.message}</p>}
               </div>
               
               <div className="mb-4">
@@ -201,19 +208,14 @@ export const DonorRegistrationForm: React.FC = () => {
                     </label>
                   ))}
                 </div>
+                {errors.medical?.donation_types && <p className="mt-1 text-sm text-red-600">{errors.medical.donation_types.message}</p>}
               </div>
               
-              <Input label="Weight (kg)" type="number" step="0.1" {...register('medical.weight_kg', { valueAsNumber: true })} />
+              <Input label="Weight (kg)" type="number" step="0.1" {...register('medical.weight_kg', { valueAsNumber: true })} error={errors.medical?.weight_kg?.message} />
               
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Illnesses (comma separated)</label>
-                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg" onChange={(e) => setValue('medical.illnesses', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])} placeholder="e.g., Diabetes, Hypertension" />
-              </div>
+              <Input label="Illnesses (comma separated)" {...register('medical.illnesses')} placeholder="e.g., Diabetes, Hypertension" />
               
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Medications (comma separated)</label>
-                <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg" onChange={(e) => setValue('medical.medications', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])} placeholder="e.g., Insulin, Aspirin" />
-              </div>
+              <Input label="Medications (comma separated)" {...register('medical.medications')} placeholder="e.g., Insulin, Aspirin" />
               
               <Input label="Last Donation Date (Optional)" type="date" {...register('medical.last_donation_date')} />
             </div>
@@ -221,11 +223,11 @@ export const DonorRegistrationForm: React.FC = () => {
           
           {step === 3 && (
             <div className="space-y-4">
-              <Input label="Phone Number" type="tel" {...register('location.phone')} placeholder="+1234567890" />
+              <Input label="Phone Number" type="tel" {...register('location.phone')} placeholder="1234567890" error={errors.location?.phone?.message} />
               <Input label="Email (Optional)" type="email" {...register('location.email')} />
-              <Input label="Address" {...register('location.address')} />
-              <Input label="City" {...register('location.city')} />
-              <Input label="Pin Code" {...register('location.pin_code')} />
+              <Input label="Address" {...register('location.address')} error={errors.location?.address?.message} />
+              <Input label="City" {...register('location.city')} error={errors.location?.city?.message} />
+              <Input label="Pin Code" {...register('location.pin_code')} error={errors.location?.pin_code?.message} />
             </div>
           )}
           
@@ -238,18 +240,6 @@ export const DonorRegistrationForm: React.FC = () => {
                     <label key={avail} className="flex items-center">
                       <input type="checkbox" value={avail} {...register('preferences.availability')} className="mr-2" />
                       {avail}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notification Types</label>
-                <div className="space-y-2">
-                  {notifyOptions.map((notify) => (
-                    <label key={notify} className="flex items-center">
-                      <input type="checkbox" value={notify} {...register('preferences.notify_types')} className="mr-2" />
-                      {notify}
                     </label>
                   ))}
                 </div>

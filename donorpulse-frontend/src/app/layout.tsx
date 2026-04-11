@@ -1,6 +1,9 @@
+// donorpulse-frontend\src\app\layout.tsx
+// donorpulse-frontend/src/app/layout.tsx
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Droplet } from 'lucide-react'
+import Link from 'next/link'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -21,15 +24,15 @@ export default function RootLayout({
         <nav className="bg-blue-600 text-white shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              <div className="flex items-center space-x-2">
+              <Link href="/" className="flex items-center space-x-2">
                 <Droplet className="h-6 w-6" />
                 <h1 className="text-xl font-bold">DonorPulse</h1>
-              </div>
+              </Link>
               <div className="hidden md:flex space-x-4">
-                <a href="/" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Home</a>
-                <a href="/donor/register" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Donor Register</a>
-                <a href="/hospital/register" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Hospital Register</a>
-                <a href="/hospital/login" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Hospital Login</a>
+                <Link href="/" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Home</Link>
+                <Link href="/donor/register" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Donor Register</Link>
+                <Link href="/hospital/register" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Hospital Register</Link>
+                <Link href="/hospital/login" className="hover:bg-blue-700 px-3 py-2 rounded transition-colors">Hospital Login</Link>
               </div>
             </div>
           </div>
