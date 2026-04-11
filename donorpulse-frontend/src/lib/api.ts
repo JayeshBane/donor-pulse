@@ -73,6 +73,42 @@ export const donorAPI = {
     const response = await api.patch(`/donors/${id}/toggle-active`)
     return response.data
   },
+
+  // Add to donorAPI object
+  getStatus: async (phone: string) => {
+    try {
+      const donor = await donorAPI.getDonorByPhone(phone)
+      
+      // Calculate cooldown
+      let cooldownDays = 0
+      let isEligible = donor.is_active && !donor.is_paused
+      
+      if (donor.medical?.last_donation_date) {
+        const lastDonation = new Date(donor.medical.last_donation_date)
+        const daysSince = Math.floor((Date.now() - lastDonation.getTime()) / (1000 * 60 * 60 * 24))
+        if (daysSince < 56) {
+          cooldownDays = 56 - daysSince
+          isEligible = false
+        }
+      }
+      
+      return {
+        eligibility: isEligible,
+        cooldown_days_remaining: cooldownDays,
+        last_donation_date: donor.medical?.last_donation_date,
+        reliability_score: donor.reliability_score || 100,
+        is_active: donor.is_active,
+        is_paused: donor.is_paused,
+        blood_type: donor.medical?.blood_type,
+        city: donor.location?.city
+      }
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error('Donor not found. Please register first.')
+      }
+      throw error
+    }
+  },
 }
 
 // Auth API
