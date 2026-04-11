@@ -1,9 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, Header
+from fastapi.responses import JSONResponse
 from database import get_db
 from datetime import datetime, timedelta
 from utils.auth import verify_webhook_signature
 from config import settings
 import logging
+
+from utils.sms import send_sms
+from utils.llm_inference import get_llm_reponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/sms", tags=["sms"])
@@ -127,3 +131,45 @@ async def handle_update_link(phone: str, db, donor: dict):
     except Exception as e:
         logger.error(f"Error generating update link: {e}")
         return {"message": "Unable to generate update link. Please contact support."}
+    
+
+@router.post("/webhooks/inbound")
+async def inbound_webhook(request: Request):
+    payload = await request.json()
+    logging.info(f"📩 Inbound: {payload}")
+
+    text = payload.get("text")
+    sender = payload.get("from")
+    profile = payload.get("profile")
+    sender_name = profile.get("name")
+
+    if text.lower() == "join job cupid":
+        return
+
+    logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
+
+    llm_response = await get_llm_reponse(text)
+
+    llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+
+    response = send_sms(sender, llm_response_text)
+
+    print(f"LLM Response: {llm_response}")
+
+    return JSONResponse(content={"status": "received"})
+
+
+# -------------------------
+# Status webhook
+# -------------------------
+@router.post("/webhooks/status")
+async def status_webhook(request: Request):
+    payload = await request.json()
+    logging.info(f"📊 Status: {payload}")
+
+    status = payload.get("status")
+    message_uuid = payload.get("message_uuid")
+
+    logging.info(f"Message {message_uuid} status: {status}")
+
+    return JSONResponse(content={"status": "ok"})
