@@ -6,6 +6,9 @@ from utils.auth import verify_webhook_signature
 from config import settings
 import logging
 
+from utils.sms import send_sms
+from utils.llm_inference import get_llm_reponse
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/sms", tags=["sms"])
 
@@ -135,12 +138,20 @@ async def inbound_webhook(request: Request):
     payload = await request.json()
     logging.info(f"📩 Inbound: {payload}")
 
-    message = payload.get("message", {})
-    content = message.get("content", {})
-    text = content.get("text")
+    text = payload.get("text")
     sender = payload.get("from")
+    profile = payload.get("profile")
+    sender_name = profile.get("name")
 
-    logging.info(f"From: {sender} | Text: {text}")
+    logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
+
+    llm_response = await get_llm_reponse(text)
+
+    llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+
+    response = send_sms(sender, llm_response_text)
+
+    print(f"LLM Response: {llm_response}")
 
     return JSONResponse(content={"status": "received"})
 

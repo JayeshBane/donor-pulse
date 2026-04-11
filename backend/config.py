@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     vonage_api_key: str = os.getenv("VONAGE_API_KEY")
     vonage_api_secret: str = os.getenv("VONAGE_API_SECRET")
     vonage_whatsapp_number: str = os.getenv("VONAGE_WHATSAPP_NUMBER")
+
+    # Cloudflare
+    cloudflare_account_id: str = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+    cloudflare_auth_token: str = os.getenv("CLOUDFLARE_AUTH_TOKEN")
     
     # Rate limiting
     rate_limit_requests: int = 100  # per minute

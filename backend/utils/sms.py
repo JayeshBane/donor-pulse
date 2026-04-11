@@ -54,8 +54,10 @@ def send_sms(to_phone: str, message: str):
 
             response = requests.post(settings.vonage_whatsapp_api_url, json=payload, headers=headers, auth=auth)
 
-            print("Status Code:", response.status_code)
-            print("Response:", response.text)
+            logger.info("Status Code:", response.status_code)
+            logger.info("Response:", response.text)
+
+            return response
         except Exception as e:
             logger.error(f"Failed to send Whatsapp message via Vonage: {e}")
             logger.info(f"📱 SMS to {to_phone}: {message}")
