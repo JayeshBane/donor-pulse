@@ -1,0 +1,13 @@
+# requirements.txt
+fastapi
+uvicorn[standard]
+motor
+pydantic
+pydantic-settings
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+httpx
+python-multipart
+email-validator
