@@ -1,6 +1,8 @@
 import re
 import logging
+from urllib import response
 from config import settings
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,9 @@ def send_sms(to_phone: str, message: str):
                     text=message,
                 )
             )
+
+            logger.info("Status Code:", response.status_code)
+            logger.info("Response:", response.text)
 
             return response
         except Exception as e:
