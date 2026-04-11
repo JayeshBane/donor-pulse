@@ -1,3 +1,4 @@
+# backend\setup_admin.py
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import settings
