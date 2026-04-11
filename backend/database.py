@@ -71,6 +71,23 @@ async def create_indexes():
         await db.db.sms_logs.create_index("phone")
         await db.db.sms_logs.create_index("timestamp")
         await db.db.sms_logs.create_index([("phone", 1), ("timestamp", -1)])
+
+        # Machine indexes
+        await db.db.machines.create_index("hospital_id")
+        await db.db.machines.create_index("machine_id")
+        await db.db.machines.create_index([("hospital_id", 1), ("machine_id", 1)], unique=True)
+        await db.db.machines.create_index("status")
+        await db.db.machines.create_index("machine_type")
+        await db.db.machines.create_index("is_active")
+        
+        # Maintenance logs indexes
+        await db.db.maintenance_logs.create_index("machine_id")
+        await db.db.maintenance_logs.create_index("hospital_id")
+        await db.db.maintenance_logs.create_index("started_at")
+        
+        # Machine audit logs
+        await db.db.machine_audit_logs.create_index("machine_id")
+        await db.db.machine_audit_logs.create_index("changed_at")
         
         logger.info("✅ Database indexes created successfully")
         
