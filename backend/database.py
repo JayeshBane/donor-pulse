@@ -42,19 +42,31 @@ async def create_indexes():
         await db.db.donors.create_index("medical.blood_type")
         await db.db.donors.create_index("location.city")
         await db.db.donors.create_index("is_active")
+        await db.db.donors.create_index("created_at")
         
         # Hospital indexes
         await db.db.hospitals.create_index("username", unique=True)
         await db.db.hospitals.create_index("email", unique=True)
         await db.db.hospitals.create_index("phone", unique=True)
+        await db.db.hospitals.create_index("license_number", unique=True)
         await db.db.hospitals.create_index("location.city")
         await db.db.hospitals.create_index("is_verified")
+        await db.db.hospitals.create_index("is_active")
         
         # Token indexes
-        await db.db.update_tokens.create_index("token", unique=True)
+        await db.db.update_tokens.create_index("hashed_token", unique=True)
         await db.db.update_tokens.create_index("expires_at")
-        await db.db.password_reset_tokens.create_index("token", unique=True)
+        await db.db.update_tokens.create_index("donor_id")
+        await db.db.password_reset_tokens.create_index("hashed_token", unique=True)
+        
+        # Rate limiting indexes
         await db.db.rate_limits.create_index("donor_phone")
+        await db.db.rate_limits.create_index("last_update_date")
+        
+        # SMS logs indexes
+        await db.db.sms_logs.create_index("phone")
+        await db.db.sms_logs.create_index("timestamp")
+        await db.db.sms_logs.create_index([("phone", 1), ("timestamp", -1)])
         
         logger.info("✅ Database indexes created successfully")
         

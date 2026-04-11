@@ -13,6 +13,7 @@ async def reset_database():
         await db.update_tokens.drop()
         await db.password_reset_tokens.drop()
         await db.rate_limits.drop()
+        await db.sms_logs.drop()
         
         print("✅ Dropped all collections")
         client.close()

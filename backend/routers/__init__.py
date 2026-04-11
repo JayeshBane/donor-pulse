@@ -1,6 +1,7 @@
+# Initialize the routers package
 from . import donor
 from . import hospital
 from . import auth
 from . import sms
 
-__all__ = ["donor", "hospital", "auth", "sms"]  
+__all__ = ["donor", "hospital", "auth", "sms"]

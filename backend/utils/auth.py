@@ -4,6 +4,8 @@ from passlib.context import CryptContext
 from typing import Optional, Dict, Any
 import secrets
 import string
+import hashlib
+import hmac
 from config import settings
 import logging
 
@@ -46,3 +48,21 @@ def generate_magic_token() -> str:
     alphabet = string.ascii_letters + string.digits
     token = ''.join(secrets.choice(alphabet) for _ in range(32))
     return token
+
+def hash_token(token: str) -> str:
+    """Hash a token for secure storage"""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+def verify_webhook_signature(signature: str, body: str, auth_token: str) -> bool:
+    """Verify Twilio webhook signature"""
+    if not signature or not auth_token:
+        return False
+    
+    # Create HMAC-SHA1 signature
+    expected_signature = hmac.new(
+        auth_token.encode(),
+        body.encode(),
+        hashlib.sha1
+    ).hexdigest()
+    
+    return hmac.compare_digest(signature, expected_signature)

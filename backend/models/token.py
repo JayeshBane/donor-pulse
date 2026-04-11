@@ -10,7 +10,7 @@ class TokenType(str, Enum):
 
 class UpdateToken(BaseModel):
     """Token for donor profile updates (magic link)"""
-    token: str
+    hashed_token: str  # Changed from token to hashed_token
     donor_id: str
     token_type: TokenType = TokenType.MAGIC_LINK
     expires_at: datetime
@@ -19,7 +19,7 @@ class UpdateToken(BaseModel):
 
 class PasswordResetToken(BaseModel):
     """Token for password reset"""
-    token: str
+    hashed_token: str  # Changed from token to hashed_token
     hospital_id: str
     expires_at: datetime
     is_used: bool = False

@@ -1,32 +1,15 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from datetime import datetime, timedelta
-from jose import jwt
-from typing import Optional, List
-import bcrypt
+from datetime import datetime
+from typing import Optional
 from database import get_db
 from models.hospital import HospitalCreate, HospitalLogin, HospitalResponse
+from utils.auth import hash_password, verify_password, create_jwt_token
+from middleware.auth import get_admin_hospital, get_current_hospital
 from config import settings
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/hospitals", tags=["hospitals"])
-
-def hash_password(password: str) -> str:
-    password_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed.decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    plain_bytes = plain_password.encode('utf-8')
-    hashed_bytes = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(plain_bytes, hashed_bytes)
-
-def create_jwt_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(hours=settings.jwt_expiry_hours)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
@@ -34,6 +17,7 @@ async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
     try:
         phone = str(hospital.phone).strip()
         
+        # Check for existing records
         existing = await db.hospitals.find_one({"username": hospital.username})
         if existing:
             raise HTTPException(status_code=400, detail="Username already exists")
@@ -46,6 +30,11 @@ async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
         existing_phone = await db.hospitals.find_one({"phone": phone})
         if existing_phone:
             raise HTTPException(status_code=400, detail="Phone number already registered")
+        
+        # Validate license number uniqueness
+        existing_license = await db.hospitals.find_one({"license_number": hospital.license_number})
+        if existing_license:
+            raise HTTPException(status_code=400, detail="License number already registered")
         
         hashed_pwd = hash_password(hospital.password)
         
@@ -77,7 +66,7 @@ async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error registering hospital: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/login")
 async def login_hospital(login: HospitalLogin, db=Depends(get_db)):
@@ -97,13 +86,15 @@ async def login_hospital(login: HospitalLogin, db=Depends(get_db)):
         token_data = {
             "sub": hospital["username"],
             "hospital_id": str(hospital["_id"]),
-            "is_verified": hospital.get("is_verified", False)
+            "is_verified": hospital.get("is_verified", False),
+            "type": "hospital"
         }
         token = create_jwt_token(token_data)
         
         return {
             "access_token": token,
             "token_type": "bearer",
+            "expires_in": settings.jwt_expiry_hours * 3600,
             "hospital": HospitalResponse(
                 id=str(hospital["_id"]),
                 name=hospital["name"],
@@ -120,7 +111,7 @@ async def login_hospital(login: HospitalLogin, db=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error logging in: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/", response_model=dict)
 async def list_hospitals(
@@ -130,13 +121,21 @@ async def list_hospitals(
     is_verified: Optional[bool] = None,
     db=Depends(get_db)
 ):
-    """List hospitals with filters"""
+    """List hospitals with filters (public endpoint)"""
     try:
+        # Validate pagination
+        if skip < 0:
+            raise HTTPException(status_code=400, detail="Skip must be >= 0")
+        if limit < 1 or limit > 200:
+            raise HTTPException(status_code=400, detail="Limit must be between 1 and 200")
+        
         query = {}
         if city:
             query["location.city"] = city
         if is_verified is not None:
             query["is_verified"] = is_verified
+        
+        query["is_active"] = True  # Only show active hospitals to public
         
         total = await db.hospitals.count_documents(query)
         cursor = db.hospitals.find(query).skip(skip).limit(limit)
@@ -155,17 +154,24 @@ async def list_hospitals(
             ))
         
         return {"total": total, "skip": skip, "limit": limit, "hospitals": hospitals}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing hospitals: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/{hospital_id}", response_model=HospitalResponse)
 async def get_hospital(hospital_id: str, db=Depends(get_db)):
-    """Get hospital by ID"""
+    """Get hospital by ID (public endpoint)"""
     from bson import ObjectId
     
     try:
-        hospital = await db.hospitals.find_one({"_id": ObjectId(hospital_id)})
+        if not ObjectId.is_valid(hospital_id):
+            raise HTTPException(status_code=400, detail="Invalid hospital ID format")
+        
+        hospital = await db.hospitals.find_one(
+            {"_id": ObjectId(hospital_id), "is_active": True}
+        )
         if not hospital:
             raise HTTPException(status_code=404, detail="Hospital not found")
         
@@ -180,5 +186,8 @@ async def get_hospital(hospital_id: str, db=Depends(get_db)):
             is_verified=hospital.get("is_verified", False),
             is_active=hospital.get("is_active", True)
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        logger.error(f"Error getting hospital: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")

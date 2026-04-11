@@ -89,8 +89,8 @@ class DonorInDB(DonorCreate):
     def is_on_cooldown(self) -> bool:
         if not self.medical.last_donation_date:
             return False
-        cooldown_days = 56
-        return datetime.utcnow() < self.medical.last_donation_date + timedelta(days=cooldown_days)
+        from config import settings
+        return datetime.utcnow() < self.medical.last_donation_date + timedelta(days=settings.donor_cooldown_days)
     
     @property
     def can_receive_alerts(self) -> bool:

@@ -12,16 +12,26 @@ class Settings(BaseSettings):
     jwt_expiry_hours: int = 8
     
     # CORS
-    cors_origins: str = "*"
+    cors_origins: str = "http://localhost:3000,http://localhost:8000"
     port: int = 8000
+    
+    # Environment
+    environment: str = "development"  # development, staging, production
+    
+    # Frontend URL for magic links
+    frontend_url: str = "http://localhost:3000"
     
     # Twilio (Optional)
     twilio_account_sid: Optional[str] = ""
     twilio_auth_token: Optional[str] = ""
     twilio_phone_number: Optional[str] = ""
-
-    if len(twilio_phone_number) >= 10:
-        twilio_phone_number: Optional[str] = f"+{twilio_phone_number}" 
+    
+    # Rate limiting
+    rate_limit_requests: int = 100  # per minute
+    rate_limit_window: int = 60  # seconds
+    
+    # Donor cooldown period in days
+    donor_cooldown_days: int = 56
     
     @property
     def cors_origins_list(self) -> List[str]:

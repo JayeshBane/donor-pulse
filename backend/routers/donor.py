@@ -88,7 +88,7 @@ async def register_donor(donor: DonorCreate, db=Depends(get_db)):
         logger.error(f"Error registering donor: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register donor: {str(e)}"
+            detail="Failed to register donor"
         )
 
 @router.get("/by-phone/", response_model=dict)
@@ -122,7 +122,7 @@ async def get_donor_by_phone(
         logger.error(f"Error getting donor by phone: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get donor: {str(e)}"
+            detail="Failed to get donor"
         )
 
 @router.get("/", response_model=dict)
@@ -165,7 +165,7 @@ async def list_donors(
         
     except Exception as e:
         logger.error(f"Error listing donors: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/{donor_id}", response_model=dict)
 async def get_donor(donor_id: str, db=Depends(get_db)):
@@ -185,7 +185,7 @@ async def get_donor(donor_id: str, db=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error getting donor: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.patch("/{donor_id}/toggle-active", response_model=dict)
 async def toggle_donor_active(donor_id: str, db=Depends(get_db)):
@@ -213,4 +213,4 @@ async def toggle_donor_active(donor_id: str, db=Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Error toggling donor: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

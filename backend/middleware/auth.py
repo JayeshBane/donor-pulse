@@ -19,6 +19,13 @@ async def get_current_hospital(
         hospital_id = payload.get("hospital_id")
         
         from bson import ObjectId
+        
+        if not ObjectId.is_valid(hospital_id):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid hospital ID"
+            )
+            
         hospital = await db.hospitals.find_one({"_id": ObjectId(hospital_id)})
         
         if not hospital:
@@ -27,22 +34,45 @@ async def get_current_hospital(
                 detail="Hospital not found"
             )
         
+        # Check if account is active
+        if not hospital.get("is_active", True):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Hospital account is deactivated"
+            )
+        
         return {
             "id": str(hospital["_id"]),
             "username": hospital["username"],
             "is_verified": hospital.get("is_verified", False),
-            "is_active": hospital.get("is_active", True)
+            "is_active": hospital.get("is_active", True),
+            "name": hospital.get("name"),
+            "type": hospital.get("type")
         }
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Authentication error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
+            detail="Invalid or expired authentication token"
         )
 
-async def get_current_admin(
+async def get_verified_hospital(
     current_hospital: dict = Depends(get_current_hospital)
 ):
-    """Check if current hospital has admin privileges"""
+    """Check if current hospital is verified"""
+    if not current_hospital.get("is_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Hospital account requires verification for this action"
+        )
+    return current_hospital
+
+async def get_admin_hospital(
+    current_hospital: dict = Depends(get_current_hospital)
+):
+    """Check if current hospital has admin privileges (verified hospital)"""
     if not current_hospital.get("is_verified"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
