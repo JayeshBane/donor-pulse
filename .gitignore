@@ -5,8 +5,11 @@ yarn-error.log
 package-lock.json
 yarn.lock
 
-*/__pycache__/
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 
 # Environment variables
 .env
@@ -42,3 +45,9 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
