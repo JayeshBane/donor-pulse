@@ -7,13 +7,13 @@ import requests
 logger = logging.getLogger(__name__)
 
 # Try to import Twilio, but don't fail if not installed
-try:
-    from vonage import Auth, Vonage
-    from vonage_messages import Sms
-    VONAGE_AVAILABLE = True
-except ImportError:
-    VONAGE_AVAILABLE = False
-    logger.warning("Vonage not installed. Message will be logged only.")
+# try:
+#     from vonage import Auth, Vonage
+#     from vonage_messages import Sms
+#     VONAGE_AVAILABLE = True
+# except ImportError:
+#     VONAGE_AVAILABLE = False
+#     logger.warning("Vonage not installed. Message will be logged only.")
 
 def send_sms(to_phone: str, message: str):
     """Send Whatsapp message using Vonage (falls back to logging if not configured)"""
@@ -33,29 +33,29 @@ def send_sms(to_phone: str, message: str):
     #         logger.info(f"📱 SMS to {to_phone}: {message}")
     #         return None
 
-    if VONAGE_AVAILABLE and settings.vonage_api_key and settings.vonage_whatsapp_number:
+    if settings.vonage_api_key and settings.vonage_whatsapp_number:
         try:
-            client = Vonage(
-                Auth(
-                    api_key=settings.vonage_api_key,
-                    api_secret=settings.vonage_api_secret,
-                )
-            )
+            auth = (settings.vonage_api_key, settings.vonage_api_secret)  # (API key, API secret)
 
-            numeric_to_phone = re.sub(r'[^0-9]', '', to_phone)            
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
 
-            response = client.messages.send(
-                Sms(
-                    to=numeric_to_phone,
-                    from_=settings.vonage_whatsapp_number,
-                    text=message,
-                )
-            )
+            numeric_to_phone = re.sub(r'^[0-9]$','', to_phone)
 
-            logger.info("Status Code:", response.status_code)
-            logger.info("Response:", response.text)
+            payload = {
+                "from": settings.vonage_whatsapp_number,   # e.g. "14157386102" or WhatsApp-enabled number
+                "to": numeric_to_phone,     # e.g. "919XXXXXXXXX"
+                "message_type": "text",
+                "text": message,
+                "channel": "whatsapp"
+            }
 
-            return response
+            response = requests.post(settings.vonage_whatsapp_api_url, json=payload, headers=headers, auth=auth)
+
+            print("Status Code:", response.status_code)
+            print("Response:", response.text)
         except Exception as e:
             logger.error(f"Failed to send Whatsapp message via Vonage: {e}")
             logger.info(f"📱 SMS to {to_phone}: {message}")
