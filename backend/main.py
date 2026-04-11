@@ -88,6 +88,40 @@ async def root():
         "version": "1.0.0"
     }
 
+# -------------------------
+# Inbound webhook
+# -------------------------
+@app.post("/webhooks/inbound")
+async def inbound_webhook(request: Request):
+    payload = await request.json()
+    logging.info(f"📩 Inbound: {payload}")
+
+    # Extract basic fields
+    message = payload.get("message", {})
+    content = message.get("content", {})
+    text = content.get("text")
+    sender = payload.get("from")
+
+    logging.info(f"From: {sender} | Text: {text}")
+
+    return JSONResponse(content={"status": "received"})
+
+
+# -------------------------
+# Status webhook
+# -------------------------
+@app.post("/webhooks/status")
+async def status_webhook(request: Request):
+    payload = await request.json()
+    logging.info(f"📊 Status: {payload}")
+
+    status = payload.get("status")
+    message_uuid = payload.get("message_uuid")
+
+    logging.info(f"Message {message_uuid} status: {status}")
+
+    return JSONResponse(content={"status": "ok"})
+
 # Include routers
 app.include_router(donor.router)
 app.include_router(hospital.router)
