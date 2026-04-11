@@ -88,6 +88,9 @@ async def create_indexes():
         # Machine audit logs
         await db.db.machine_audit_logs.create_index("machine_id")
         await db.db.machine_audit_logs.create_index("changed_at")
+
+        await db.db.admins.create_index("username", unique=True)
+        await db.db.admins.create_index("email", unique=True)
         
         logger.info("✅ Database indexes created successfully")
         
