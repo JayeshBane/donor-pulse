@@ -99,7 +99,7 @@ async def inbound_webhook(request: Request):
     # Extract basic fields
     message = payload.get("message", {})
     content = message.get("content", {})
-    text = content.get("text")
+    text = payload.get("text")
     sender = payload.get("from")
 
     logging.info(f"From: {sender} | Text: {text}")
