@@ -1,4 +1,4 @@
-// donorpulse-frontend\src\types\donor.ts
+// donorpulse-frontend\src\types\donor.ts 
 export type BloodType = 'O-' | 'O+' | 'A-' | 'A+' | 'B-' | 'B+' | 'AB-' | 'AB+'
 export type DonationType = 'whole_blood' | 'platelets' | 'plasma' | 'double_rbc'
 export type Availability = 'Morning' | 'Afternoon' | 'Evening' | 'Night'

@@ -1,3 +1,4 @@
+// donorpulse-frontend\src\app\hospital\dashboard\page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'

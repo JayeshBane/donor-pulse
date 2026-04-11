@@ -1,5 +1,4 @@
 // donorpulse-frontend\src\app\layout.tsx
-// donorpulse-frontend/src/app/layout.tsx
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Droplet } from 'lucide-react'
