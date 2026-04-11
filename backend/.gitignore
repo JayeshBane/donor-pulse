@@ -2,7 +2,10 @@
 # Python bytecode / cache
 # =========================
 */__pycache__/
+<<<<<<< HEAD
 utils/__pycache__
+=======
+>>>>>>> 52e94491bb9183e2425b7549b5ce9c01c9c74279
 *.py[cod]
 *$py.class
 
