@@ -5,8 +5,11 @@ yarn-error.log
 package-lock.json
 yarn.lock
 
-*/__pycache__/
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 
 # Environment variables
 .env
