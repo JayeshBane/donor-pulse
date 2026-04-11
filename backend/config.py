@@ -27,15 +27,15 @@ class Settings(BaseSettings):
     twilio_auth_token: Optional[str] = ""
     twilio_phone_number: Optional[str] = ""
 
-    # Vonage
-    vonage_whatsapp_api_url: str = os.getenv("VONAGE_WHATSAPP_API_URL")
-    vonage_api_key: str = os.getenv("VONAGE_API_KEY")
-    vonage_api_secret: str = os.getenv("VONAGE_API_SECRET")
-    vonage_whatsapp_number: str = os.getenv("VONAGE_WHATSAPP_NUMBER")
+    # Vonage (Optional)
+    vonage_whatsapp_api_url: Optional[str] = ""
+    vonage_api_key: Optional[str] = ""
+    vonage_api_secret: Optional[str] = ""
+    vonage_whatsapp_number: Optional[str] = ""
 
-    # Cloudflare
-    cloudflare_account_id: str = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-    cloudflare_auth_token: str = os.getenv("CLOUDFLARE_AUTH_TOKEN")
+    # Cloudflare (Optional)
+    cloudflare_account_id: Optional[str] = ""
+    cloudflare_auth_token: Optional[str] = ""
     
     # Rate limiting
     rate_limit_requests: int = 100  # per minute

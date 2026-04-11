@@ -1,4 +1,3 @@
-// donorpulse-frontend/src/components/donor/DonorRegistrationForm.tsx (Fixed)
 'use client'
 
 import React, { useState } from 'react'
@@ -49,9 +48,9 @@ export const DonorRegistrationForm: React.FC = () => {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, setValue, watch, trigger } = useForm<FormData>({
     resolver: zodResolver(donorRegistrationSchema),
     defaultValues: {
       medical: {
@@ -61,11 +60,39 @@ export const DonorRegistrationForm: React.FC = () => {
         availability: [],
         transport_available: false
       }
-    }
+    },
+    mode: 'onChange' // Validate on change
   })
   
+  // Watch values for debugging
+  const watchedValues = watch()
+  
+  const handleNextStep = async () => {
+    // Validate current step fields
+    let fieldsToValidate: (keyof FormData)[] = []
+    
+    if (step === 1) {
+      fieldsToValidate = ['name', 'age', 'gender']
+    } else if (step === 2) {
+      fieldsToValidate = ['medical']
+    } else if (step === 3) {
+      fieldsToValidate = ['location']
+    } else if (step === 4) {
+      fieldsToValidate = ['preferences']
+    }
+    
+    const isValid = await trigger(fieldsToValidate)
+    
+    if (isValid) {
+      setStep(step + 1)
+      setError(null)
+    } else {
+      setError('Please fill all required fields correctly')
+    }
+  }
   
   const onSubmit = async (data: FormData) => {
+    console.log('Form submitted with data:', data)
     setLoading(true)
     setError(null)
     
@@ -105,50 +132,58 @@ export const DonorRegistrationForm: React.FC = () => {
       
       console.log('Registration response:', response)
       
-      alert(`✅ Donor registered successfully!\n\nA welcome SMS has been sent to ${data.location.phone}\n\nUse SMS commands to manage your profile:\n• Send STATUS to check eligibility\n• Send UPDATE to get profile update link\n• Send HELP for all commands`)
+      setSuccess(`✅ Donor registered successfully! A welcome SMS has been sent.`)
       
-      window.location.href = '/'
+      // Redirect after 3 seconds
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 3000)
+      
     } catch (error: any) {
       console.error('Registration error:', error)
       const errorMessage = error.response?.data?.detail || error.message || 'Registration failed'
       setError(errorMessage)
-      
-      // Show detailed error for debugging
-      if (error.response?.data) {
-        setDebugInfo(`API Error: ${JSON.stringify(error.response.data)}`)
-      }
     } finally {
       setLoading(false)
     }
   }
   
-  const nextStep = () => {
-    setError(null)
-    setStep(step + 1)
-  }
-  
   const prevStep = () => {
-    setError(null)
     setStep(step - 1)
+    setError(null)
   }
   
   return (
     <div className="max-w-4xl mx-auto p-6">
       <Card title="Donor Registration">
-        {/* Debug info */}
-        {debugInfo && (
-          <div className={`mb-4 p-3 rounded-lg ${debugInfo.includes('✅') ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-            {debugInfo}
+        {/* Success Message */}
+        {success && (
+          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            {success}
+            <div className="text-sm mt-1">Redirecting to home page...</div>
           </div>
         )}
         
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+        
+        {/* Step Indicator */}
         <div className="mb-8">
           <div className="flex justify-between">
             {[1, 2, 3, 4].map((s) => (
               <div key={s} className="flex-1 text-center">
-                <div className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center ${
-                  step >= s ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
-                }`}>
+                <div 
+                  className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center cursor-pointer ${
+                    step >= s ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
+                  }`}
+                  onClick={() => {
+                    if (s < step) setStep(s)
+                  }}
+                >
                   {s}
                 </div>
                 <p className="text-sm mt-2">
@@ -162,20 +197,30 @@ export const DonorRegistrationForm: React.FC = () => {
           </div>
         </div>
         
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-            {error}
-          </div>
-        )}
-        
         <form onSubmit={handleSubmit(onSubmit)}>
+          {/* Step 1: Basic Info */}
           {step === 1 && (
             <div className="space-y-4">
-              <Input label="Full Name" {...register('name')} error={errors.name?.message} />
-              <Input label="Age" type="number" {...register('age', { valueAsNumber: true })} error={errors.age?.message} />
+              <Input 
+                label="Full Name" 
+                {...register('name')} 
+                error={errors.name?.message}
+                required
+              />
+              <Input 
+                label="Age" 
+                type="number" 
+                {...register('age', { valueAsNumber: true })} 
+                error={errors.age?.message}
+                required
+              />
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                <select {...register('gender')} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+                <select 
+                  {...register('gender')} 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -183,15 +228,24 @@ export const DonorRegistrationForm: React.FC = () => {
                 </select>
                 {errors.gender && <p className="mt-1 text-sm text-red-600">{errors.gender.message}</p>}
               </div>
-              <Input label="Photo URL (Optional)" {...register('photo_url')} placeholder="https://..." />
+              <Input 
+                label="Photo URL (Optional)" 
+                {...register('photo_url')} 
+                placeholder="https://..." 
+              />
             </div>
           )}
           
+          {/* Step 2: Medical Info */}
           {step === 2 && (
             <div className="space-y-4">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Blood Type</label>
-                <select {...register('medical.blood_type')} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Blood Type *</label>
+                <select 
+                  {...register('medical.blood_type')} 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
                   <option value="">Select Blood Type</option>
                   {bloodTypes.map((bt) => (<option key={bt} value={bt}>{bt}</option>))}
                 </select>
@@ -199,11 +253,16 @@ export const DonorRegistrationForm: React.FC = () => {
               </div>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Donation Types</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Donation Types *</label>
                 <div className="space-y-2">
                   {donationTypes.map((dt) => (
                     <label key={dt} className="flex items-center">
-                      <input type="checkbox" value={dt} {...register('medical.donation_types')} className="mr-2" />
+                      <input 
+                        type="checkbox" 
+                        value={dt} 
+                        {...register('medical.donation_types')} 
+                        className="mr-2" 
+                      />
                       {dt.replace('_', ' ').toUpperCase()}
                     </label>
                   ))}
@@ -211,26 +270,73 @@ export const DonorRegistrationForm: React.FC = () => {
                 {errors.medical?.donation_types && <p className="mt-1 text-sm text-red-600">{errors.medical.donation_types.message}</p>}
               </div>
               
-              <Input label="Weight (kg)" type="number" step="0.1" {...register('medical.weight_kg', { valueAsNumber: true })} error={errors.medical?.weight_kg?.message} />
+              <Input 
+                label="Weight (kg) *" 
+                type="number" 
+                step="0.1" 
+                {...register('medical.weight_kg', { valueAsNumber: true })} 
+                error={errors.medical?.weight_kg?.message}
+                required
+              />
               
-              <Input label="Illnesses (comma separated)" {...register('medical.illnesses')} placeholder="e.g., Diabetes, Hypertension" />
+              <Input 
+                label="Illnesses (comma separated)" 
+                {...register('medical.illnesses')} 
+                placeholder="e.g., Diabetes, Hypertension" 
+              />
               
-              <Input label="Medications (comma separated)" {...register('medical.medications')} placeholder="e.g., Insulin, Aspirin" />
+              <Input 
+                label="Medications (comma separated)" 
+                {...register('medical.medications')} 
+                placeholder="e.g., Insulin, Aspirin" 
+              />
               
-              <Input label="Last Donation Date (Optional)" type="date" {...register('medical.last_donation_date')} />
+              <Input 
+                label="Last Donation Date (Optional)" 
+                type="date" 
+                {...register('medical.last_donation_date')} 
+              />
             </div>
           )}
           
+          {/* Step 3: Location */}
           {step === 3 && (
             <div className="space-y-4">
-              <Input label="Phone Number" type="tel" {...register('location.phone')} placeholder="1234567890" error={errors.location?.phone?.message} />
-              <Input label="Email (Optional)" type="email" {...register('location.email')} />
-              <Input label="Address" {...register('location.address')} error={errors.location?.address?.message} />
-              <Input label="City" {...register('location.city')} error={errors.location?.city?.message} />
-              <Input label="Pin Code" {...register('location.pin_code')} error={errors.location?.pin_code?.message} />
+              <Input 
+                label="Phone Number *" 
+                type="tel" 
+                {...register('location.phone')} 
+                placeholder="1234567890" 
+                error={errors.location?.phone?.message}
+                required
+              />
+              <Input 
+                label="Email (Optional)" 
+                type="email" 
+                {...register('location.email')} 
+              />
+              <Input 
+                label="Address *" 
+                {...register('location.address')} 
+                error={errors.location?.address?.message}
+                required
+              />
+              <Input 
+                label="City *" 
+                {...register('location.city')} 
+                error={errors.location?.city?.message}
+                required
+              />
+              <Input 
+                label="Pin Code *" 
+                {...register('location.pin_code')} 
+                error={errors.location?.pin_code?.message}
+                required
+              />
             </div>
           )}
           
+          {/* Step 4: Preferences */}
           {step === 4 && (
             <div className="space-y-4">
               <div className="mb-4">
@@ -238,7 +344,12 @@ export const DonorRegistrationForm: React.FC = () => {
                 <div className="space-y-2">
                   {availabilityOptions.map((avail) => (
                     <label key={avail} className="flex items-center">
-                      <input type="checkbox" value={avail} {...register('preferences.availability')} className="mr-2" />
+                      <input 
+                        type="checkbox" 
+                        value={avail} 
+                        {...register('preferences.availability')} 
+                        className="mr-2" 
+                      />
                       {avail}
                     </label>
                   ))}
@@ -247,16 +358,37 @@ export const DonorRegistrationForm: React.FC = () => {
               
               <div className="mb-4">
                 <label className="flex items-center">
-                  <input type="checkbox" {...register('preferences.transport_available')} className="mr-2" />
+                  <input 
+                    type="checkbox" 
+                    {...register('preferences.transport_available')} 
+                    className="mr-2" 
+                  />
                   I have my own transport
                 </label>
               </div>
             </div>
           )}
           
+          {/* Navigation Buttons */}
           <div className="flex justify-between mt-6">
-            {step > 1 && (<Button variant="secondary" onClick={prevStep} type="button">Previous</Button>)}
-            {step < 4 ? (<Button onClick={nextStep} type="button">Next</Button>) : (<Button loading={loading} type="submit">Register</Button>)}
+            {step > 1 && (
+              <Button variant="secondary" onClick={prevStep} type="button">
+                Previous
+              </Button>
+            )}
+            {step < 4 ? (
+              <Button onClick={handleNextStep} type="button" className={step === 1 ? 'ml-auto' : ''}>
+                Next
+              </Button>
+            ) : (
+              <Button 
+                loading={loading} 
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? 'Registering...' : 'Register Donor'}
+              </Button>
+            )}
           </div>
         </form>
       </Card>
