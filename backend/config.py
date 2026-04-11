@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List, Optional
+import os
 
 class Settings(BaseSettings):
     # MongoDB
@@ -25,6 +26,12 @@ class Settings(BaseSettings):
     twilio_account_sid: Optional[str] = ""
     twilio_auth_token: Optional[str] = ""
     twilio_phone_number: Optional[str] = ""
+
+    # Vonage
+    vonage_whatsapp_api_url: str = os.getenv("VONAGE_WHATSAPP_API_URL")
+    vonage_api_key: str = os.getenv("VONAGE_API_KEY")
+    vonage_api_secret: str = os.getenv("VONAGE_API_SECRET")
+    vonage_whatsapp_number: str = os.getenv("VONAGE_WHATSAPP_NUMBER")
     
     # Rate limiting
     rate_limit_requests: int = 100  # per minute
