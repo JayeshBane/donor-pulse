@@ -1,0 +1,86 @@
+# =========================
+# Python bytecode / cache
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# =========================
+# Virtual environments
+# =========================
+venv/
+.env/
+.env.*
+.venv/
+ENV/
+env/
+
+# =========================
+# Distribution / packaging
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# Testing / coverage
+# =========================
+.pytest_cache/
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+
+# =========================
+# Jupyter Notebook
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# IDEs / Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# Environment / secrets
+# =========================
+.env
+.env.*
+secrets.*
+*.pem
+*.key
+
+# =========================
+# MyPy / type checkers
+# =========================
+.mypy_cache/
+.dmypy.json
+
+# =========================
+# Pyre / Ruff / Lint caches
+# =========================
+.ruff_cache/
+.pyre/
+.pylint.d/
+
+# =========================
+# Mac / OS junk
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Jupyter outputs
+# =========================
+*-checkpoint.ipynb
