@@ -139,23 +139,34 @@ async def inbound_webhook(request: Request):
     payload = await request.json()
     logging.info(f"📩 Inbound: {payload}")
 
-    text = payload.get("text")
+    is_location = False
+
+    if "location" in payload:
+        is_location = True
+        location = payload.get("location")
+
+        latitude = location["lat"]
+        longitude = location["long"]
+
+        print(f"Location received: {latitude} and {longitude}")
+
+    text = payload.get("text", "")
     sender = payload.get("from")
     profile = payload.get("profile")
     sender_name = profile.get("name")
 
-    if text.lower() == "join job cupid":
+    if text and text.lower() == "join job cupid":
         return
 
-    logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
+    if not is_location:
+        logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
+        llm_response = await get_llm_reponse(text)
 
-    llm_response = await get_llm_reponse(text)
+        llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
 
-    llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+        response = send_sms(sender, llm_response_text)
 
-    response = send_sms(sender, llm_response_text)
-
-    print(f"LLM Response: {llm_response}")
+        # print(f"LLM Response: {llm_response}")
 
     return JSONResponse(content={"status": "received"})
 
