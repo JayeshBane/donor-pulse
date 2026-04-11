@@ -143,6 +143,9 @@ async def inbound_webhook(request: Request):
     profile = payload.get("profile")
     sender_name = profile.get("name")
 
+    if text.lower() == "join job cupid":
+        return
+
     logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
 
     llm_response = await get_llm_reponse(text)
