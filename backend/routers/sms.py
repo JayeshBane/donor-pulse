@@ -336,7 +336,8 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
         location = payload.get("location")
         latitude = location["lat"]
         longitude = location["long"]
-        print(f"Location received: {latitude} and {longitude}")
+        print(f"📍 Location received: {latitude}, {longitude}")
+        # TODO: Handle location sharing for ETA tracking
 
     text = payload.get("text", "")
     sender = payload.get("from")
@@ -344,7 +345,7 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
     sender_name = profile.get("name") if profile else "User"
 
     if text and text.lower() == "join job cupid":
-        return
+        return JSONResponse(content={"status": "received"})
 
     if not is_location:
         logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
@@ -356,79 +357,94 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
         donor = await db.donors.find_one({"location.phone": phone})
         
         if donor:
-            # Detect intent
+            # ========== INTENT DETECTION ==========
             intent, confidence = detect_intent(text)
             entities = extract_entities(text, intent)
             
-            logging.info(f"Detected intent: {intent} (confidence: {confidence})")
+            logging.info(f"🎯 Detected intent: {intent} (confidence: {confidence:.2f})")
+            if entities:
+                logging.info(f"📝 Extracted entities: {entities}")
             
             # Get or create chat session
             session = await get_or_create_session(phone, str(donor["_id"]), donor["name"], db)
             session_id = session["session_id"]
             
-            # Save user message
+            # Save user message with intent
             user_msg = {
                 "role": MessageRole.USER.value,
                 "content": text,
                 "timestamp": datetime.utcnow().isoformat(),
-                "intent": intent
+                "intent": intent,
+                "confidence": confidence,
+                "channel": "whatsapp"
             }
             await add_message_to_session(session_id, user_msg, db)
             
-            # Handle intent or fallback to chat
+            # ========== HANDLE BASED ON INTENT ==========
             if intent != "chat" and confidence >= 0.6:
-                # Use intent handler
+                # Use intent handler for known commands
                 handler = INTENT_HANDLERS.get(intent)
                 if handler:
                     response_text = await handler(donor, db, entities)
-                    logging.info(f"Intent '{intent}' handled by function")
+                    logging.info(f"✅ Intent '{intent}' handled by function handler")
                 else:
-                    response_text = "I understand what you want, but I'm having trouble processing it. Please try again or use HELP for commands."
+                    response_text = "I understand what you want, but I'm having trouble processing it. Please try again or send HELP for available commands."
             else:
-                # Use AI chat with context
+                # Use AI chat with context for natural conversation
                 recent_messages = await get_session_messages(session_id, db, limit=10)
                 
+                # Build conversation history
                 conversation = []
                 for msg in recent_messages[-6:]:
                     conversation.append(f"{msg['role']}: {msg['content']}")
                 
                 conversation_text = "\n".join(conversation)
                 
-                prompt = f"""You are DonorPulse AI Assistant helping a blood donor.
+                # Build prompt with donor context and intent info
+                prompt = f"""You are DonorPulse AI Assistant helping a blood donor via WhatsApp.
 
-Donor Name: {donor.get('name')}
-Donor Blood Type: {donor.get('medical', {}).get('blood_type')}
-Donor City: {donor.get('location', {}).get('city')}
+Donor Information:
+- Name: {donor.get('name')}
+- Blood Type: {donor.get('medical', {}).get('blood_type')}
+- City: {donor.get('location', {}).get('city')}
+- Active Status: {'Active' if donor.get('is_active', True) else 'Inactive'}
+- Reliability Score: {donor.get('reliability_score', 100)}/100
+
+Detected Intent: {intent} (confidence: {confidence:.2f})
 
 Previous conversation:
 {conversation_text}
 
 Donor: {text}
 
-Assistant: Please respond helpfully and concisely."""
+Assistant: Please respond helpfully and concisely. If the donor is asking for something that requires a command, guide them to use the appropriate command (STATUS, AVAILABLE, UPDATE, etc.). Keep responses WhatsApp-friendly (short and clear)."""
                 
+                # Get AI response with context
                 llm_response = await get_llm_reponse(prompt)
-                response_text = llm_response.get("result", {"response": "I'm here to help! Please let me know what you need."}).get("response")
+                response_text = llm_response.get("result", {}).get("response", "I'm here to help! Please let me know what you need.")
             
             # Save assistant message
             assistant_msg = {
                 "role": MessageRole.ASSISTANT.value,
                 "content": response_text,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "intent": intent,
+                "channel": "whatsapp"
             }
             await add_message_to_session(session_id, assistant_msg, db)
             
-            # Send response
+            # Send response via WhatsApp
             send_sms(sender, response_text)
-            logging.info(f"Sent response to {sender}")
+            logging.info(f"📤 Sent response to {sender_name} ({phone})")
             
         else:
-            # Donor not found
-            llm_response = await get_llm_reponse(text)
-            response_text = llm_response.get("result", {"response": "Please register as a donor first at our website."}).get("response")
+            # Donor not registered
+            logging.info(f"Donor not found for {phone}")
+            response_text = "❌ You are not registered as a donor. Please register at our website: http://localhost:3000/donor/register"
             send_sms(sender, response_text)
 
     return JSONResponse(content={"status": "received"})
+
 
 # -------------------------
 # Status webhook
