@@ -129,6 +129,16 @@ async def create_indexes():
         # Broadcast logs indexes
         await db.db.broadcast_logs.create_index("sent_at")
         await db.db.broadcast_logs.create_index("type")
+
+        # Feedback indexes
+        await db.db.feedback.create_index("donor_id")
+        await db.db.feedback.create_index("request_id", unique=True)
+        await db.db.feedback.create_index("hospital_id")
+        await db.db.feedback.create_index("created_at")
+
+        # Reliability history indexes
+        await db.db.reliability_history.create_index("donor_id")
+        await db.db.reliability_history.create_index("created_at")
         
         logger.info("✅ Database indexes created successfully")
         
