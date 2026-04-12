@@ -12,6 +12,7 @@ from routers.chat_history import get_or_create_session, add_message_to_session, 
 from models.chat_history import ChatMessage, MessageRole
 from utils.sms import send_sms
 from utils.llm_inference import get_llm_reponse
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/sms", tags=["sms"])
@@ -318,7 +319,11 @@ async def handle_update_link(phone: str, db, donor: dict):
     
 
 @router.post("/webhooks/inbound")
-async def inbound_webhook(request: Request):
+async def inbound_webhook(request: Request, db=Depends(get_db)):
+    from datetime import datetime
+    from routers.chat_history import get_or_create_session, add_message_to_session, get_session_messages
+    from models.chat_history import MessageRole
+    
     payload = await request.json()
     logging.info(f"📩 Inbound: {payload}")
 
@@ -327,32 +332,88 @@ async def inbound_webhook(request: Request):
     if "location" in payload:
         is_location = True
         location = payload.get("location")
-
         latitude = location["lat"]
         longitude = location["long"]
-
         print(f"Location received: {latitude} and {longitude}")
 
     text = payload.get("text", "")
     sender = payload.get("from")
     profile = payload.get("profile")
-    sender_name = profile.get("name")
+    sender_name = profile.get("name") if profile else "User"
 
     if text and text.lower() == "join job cupid":
         return
 
     if not is_location:
         logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
-        llm_response = await get_llm_reponse(text)
+        
+        # Remove '+' prefix if present
+        phone = sender.lstrip('+')
+        
+        # Find donor
+        donor = await db.donors.find_one({"location.phone": phone})
+        
+        if donor:
+            # Use chat history for context
+            session = await get_or_create_session(phone, str(donor["_id"]), donor["name"], db)
+            session_id = session["session_id"]
+            
+            # Save user message
+            user_msg = {
+                "role": MessageRole.USER.value,
+                "content": text,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            await add_message_to_session(session_id, user_msg, db)
+            
+            # Get recent messages for context (last 10 messages)
+            recent_messages = await get_session_messages(session_id, db, limit=10)
+            
+            # Build conversation history
+            conversation = []
+            for msg in recent_messages:
+                conversation.append(f"{msg['role']}: {msg['content']}")
+            
+            conversation_text = "\n".join(conversation[-6:])  # Last 6 messages for context
+            
+            # Build prompt with context
+            prompt = f"""You are DonorPulse AI Assistant helping a blood donor.
 
-        llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+Donor Name: {donor.get('name')}
+Donor Blood Type: {donor.get('medical', {}).get('blood_type')}
+Donor City: {donor.get('location', {}).get('city')}
 
-        logger.info(f"LLM Response: {llm_response_text}")
+Previous conversation:
+{conversation_text}
 
-        response = send_sms(sender, llm_response_text)
+Donor: {text}
+
+Assistant: Please respond helpfully and concisely, remembering the conversation context."""
+            
+            # Get AI response with context
+            llm_response = await get_llm_reponse(prompt)
+            llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+            
+            # Save assistant message
+            assistant_msg = {
+                "role": MessageRole.ASSISTANT.value,
+                "content": llm_response_text,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            await add_message_to_session(session_id, assistant_msg, db)
+            
+            # Send response
+            send_sms(sender, llm_response_text)
+            logging.info(f"Sent response with context to {sender}")
+            
+        else:
+            # Donor not found - use simple response without context
+            logging.info(f"Donor not found for {phone}, using simple response")
+            llm_response = await get_llm_reponse(text)
+            llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+            send_sms(sender, llm_response_text)
 
     return JSONResponse(content={"status": "received"})
-
 
 # -------------------------
 # Status webhook
