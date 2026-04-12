@@ -21,13 +21,12 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>()
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const onSubmit = async (data: LoginFormData) => {
     setLoading(true)
     setError(null)
     try {
-      const response = await axios.post('${API_BASE_URL}/admin/login', data)
+      const response = await axios.post('https://donor-pulse-backend.vercel.app/api/v1/admin/login', data)
       localStorage.setItem('admin_token', response.data.access_token)
       localStorage.setItem('admin', JSON.stringify(response.data.admin))
       router.push('/admin/dashboard')

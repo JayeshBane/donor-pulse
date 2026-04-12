@@ -42,7 +42,6 @@ export default function AppointmentReceiptPage() {
   const [appointment, setAppointment] = useState<AppointmentDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     fetchAppointment()
@@ -52,7 +51,7 @@ export default function AppointmentReceiptPage() {
     try {
       // First get appointment by token
       const response = await axios.get(
-        `${API_BASE_URL}/api/v1/appointments/token/${token}`
+        `https://donor-pulse-backend.vercel.app/api/v1/appointments/token/${token}`
       )
       setAppointment(response.data)
     } catch (error: any) {

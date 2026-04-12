@@ -105,14 +105,22 @@ export default function AdminDashboardPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [pendingRes, verifiedRes, statsRes, donorsRes] = await Promise.all([
-        api.get("/admin/hospitals/pending", {
-          headers,
-        }),
-        api.get("/api/v1/admin/hospitals/verified", {
-          headers,
-        }),
-        api.get("/api/v1/admin/stats", { headers }),
-        api.get("/api/v1/donors/", { headers }),
+        axios.get(
+          `https://donor-pulse-backend.vercel.app/api/v1/admin/hospitals/pending`,
+          { headers }
+        ),
+        axios.get(
+          `https://donor-pulse-backend.vercel.app/api/v1/admin/hospitals/verified`,
+          { headers }
+        ),
+        axios.get(
+          `https://donor-pulse-backend.vercel.app/api/v1/admin/stats`,
+          { headers }
+        ),
+        axios.get(
+          `https://donor-pulse-backend.vercel.app/api/v1/donors`,
+          { headers }
+        ),
       ]);
 
       setPendingHospitals(pendingRes.data.hospitals);
@@ -140,13 +148,18 @@ export default function AdminDashboardPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [auditRes, hospitalRes, donorRes] = await Promise.all([
-        api.get("/admin/logs/audit", { headers }),
-        api.get("/admin/logs/hospitals", {
-          headers,
-        }),
-        api.get("/admin/logs/donors", {
-          headers,
-        }),
+        axios.get(
+          `https://donor-pulse-backend.vercel.app/admin/logs/audit`,
+          { headers }
+        ),
+        axios.get(
+          `https://donor-pulse-backend.vercel.app/admin/logs/hospitals`,
+          { headers }
+        ),
+        axios.get(
+          `https://donor-pulse-backend.vercel.app/admin/logs/donors`,
+          { headers }
+        ),
       ]);
 
       setAuditLogs(auditRes.data.logs || []);
