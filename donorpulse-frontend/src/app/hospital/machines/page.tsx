@@ -31,7 +31,7 @@ export default function HospitalMachinesPage() {
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [hospital, setHospital] = useState<any>(null)
-  
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
   const [newMachine, setNewMachine] = useState({
     machine_id: '',
     name: '',
@@ -60,7 +60,7 @@ export default function HospitalMachinesPage() {
       const hospitalData = JSON.parse(localStorage.getItem('hospital') || '{}')
       
       const response = await axios.get(
-        `http://localhost:8000/api/v1/machines/hospital/${hospitalData.id}`,
+        `${API_BASE_URL}/machines/hospital/${hospitalData.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       setMachines(response.data)
@@ -75,7 +75,7 @@ export default function HospitalMachinesPage() {
     try {
       const token = localStorage.getItem('access_token')
       await axios.post(
-        'http://localhost:8000/api/v1/machines/add',
+        '${API_BASE_URL}/machines/add',
         newMachine,
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -104,7 +104,7 @@ export default function HospitalMachinesPage() {
     try {
       const token = localStorage.getItem('access_token')
       await axios.patch(
-        `http://localhost:8000/api/v1/machines/${machineId}/status`,
+        `${API_BASE_URL}/machines/${machineId}/status`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -118,7 +118,7 @@ export default function HospitalMachinesPage() {
     try {
       const token = localStorage.getItem('access_token')
       await axios.patch(
-        `http://localhost:8000/api/v1/machines/${machineId}/toggle-active`,
+        `${API_BASE_URL}/machines/${machineId}/toggle-active`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       )

@@ -40,6 +40,8 @@ export default function HospitalAppointmentsPage() {
   const [selectedDate, setSelectedDate] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
 
   useEffect(() => {
     const hospitalData = localStorage.getItem('hospital')
@@ -60,7 +62,7 @@ export default function HospitalAppointmentsPage() {
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.get(
-        `http://localhost:8000/api/v1/appointments/hospital/${hospital.id}`,
+        `${API_BASE_URL}/appointments/hospital/${hospital.id}`,
         {
           params: { date: selectedDate },
           headers: { Authorization: `Bearer ${token}` }
@@ -90,23 +92,23 @@ export default function HospitalAppointmentsPage() {
       
       switch(action) {
         case 'checkin':
-          endpoint = `http://localhost:8000/api/v1/appointments/${appointmentId}/checkin`
+          endpoint = `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/checkin`
           successMessage = 'Donor checked in successfully!'
           break
         case 'start':
-          endpoint = `http://localhost:8000/api/v1/appointments/${appointmentId}/start`
+          endpoint = `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/start`
           successMessage = 'Donation started successfully!'
           break
         case 'complete':
-          endpoint = `http://localhost:8000/api/v1/appointments/${appointmentId}/complete`
+          endpoint = `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/complete`
           successMessage = 'Donation completed successfully!'
           break
         case 'cancel':
-          endpoint = `http://localhost:8000/api/v1/appointments/${appointmentId}/cancel`
+          endpoint = `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/cancel`
           successMessage = 'Appointment cancelled successfully!'
           break
         case 'noshow':
-          endpoint = `http://localhost:8000/api/v1/appointments/${appointmentId}/noshow`
+          endpoint = `${process.env.NEXT_PUBLIC_API_URL}/appointments/${appointmentId}/noshow`
           successMessage = 'Appointment marked as no-show!'
           break
       }

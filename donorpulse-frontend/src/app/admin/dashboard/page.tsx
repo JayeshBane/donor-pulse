@@ -240,8 +240,8 @@ export default function AdminDashboardPage() {
       const token = localStorage.getItem("admin_token");
       const endpoint =
         broadcastType === "donors"
-          ? "http://localhost:8000/api/v1/admin/broadcast/donors"
-          : "http://localhost:8000/api/v1/admin/broadcast/hospitals";
+          ? `${process.env.NEXT_PUBLIC_API_URL}/admin/broadcast/donors`
+    : `${process.env.NEXT_PUBLIC_API_URL}/admin/broadcast/hospitals`;
 
       const response = await axios.post(
         endpoint,

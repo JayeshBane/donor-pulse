@@ -74,6 +74,7 @@ export default function RequestDetailsPage() {
     lng: number;
   } | null>(null);
   const [mapDonors, setMapDonors] = useState<any[]>([]);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     if (requestId) {
@@ -88,7 +89,7 @@ export default function RequestDetailsPage() {
     try {
       const token = localStorage.getItem("access_token");
       const response = await axios.get(
-        `http://localhost:8000/api/v1/requests/${requestId}`,
+        `${API_BASE_URL}/requests/${requestId}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setRequest(response.data);
@@ -126,7 +127,7 @@ export default function RequestDetailsPage() {
       if (!lat || !lng) {
         try {
           const donorsRes = await axios.get(
-            `http://localhost:8000/api/v1/donors/?search=${donor.donor_name}`,
+            `${API_BASE_URL}/donors/?search=${donor.donor_name}`,
             { headers: { Authorization: `Bearer ${token}` } },
           );
 
@@ -139,7 +140,7 @@ export default function RequestDetailsPage() {
             if (lat && lng && hospitalLocation && donor.status === "accepted") {
               try {
                 const routeRes = await axios.get(
-                  `http://localhost:8000/api/v1/location/route/${donorData._id}/${requestId}`,
+                  `${API_BASE_URL}/location/route/${donorData._id}/${requestId}`,
                   { headers: { Authorization: `Bearer ${token}` } },
                 );
                 distance = routeRes.data.distance_km;
@@ -184,7 +185,7 @@ export default function RequestDetailsPage() {
       if (hospitalData) {
         const hospital = JSON.parse(hospitalData);
         const response = await axios.get(
-          `http://localhost:8000/api/v1/hospitals/${hospital.id}`,
+          `${API_BASE_URL}/hospitals/${hospital.id}`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
 
@@ -214,7 +215,7 @@ export default function RequestDetailsPage() {
     try {
       const token = localStorage.getItem("access_token");
       await axios.patch(
-        `http://localhost:8000/api/v1/requests/${requestId}/cancel`,
+        `${API_BASE_URL}/requests/${requestId}/cancel`,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );

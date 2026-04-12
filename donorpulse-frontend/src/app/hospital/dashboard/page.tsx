@@ -66,6 +66,7 @@ export default function HospitalDashboardPage() {
   })
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     const token = localStorage.getItem('access_token')
@@ -93,7 +94,7 @@ export default function HospitalDashboardPage() {
       const token = localStorage.getItem('access_token')
       
       const response = await axios.get(
-        `http://localhost:8000/api/v1/machines/hospital/${hospitalId}`,
+        `${API_BASE_URL}/machines/hospital/${hospitalId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       
@@ -122,7 +123,7 @@ export default function HospitalDashboardPage() {
       const token = localStorage.getItem('access_token')
       
       const response = await axios.get(
-        `http://localhost:8000/api/v1/requests/hospital/${hospitalId}`,
+        `${API_BASE_URL}/requests/hospital/${hospitalId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       
@@ -152,7 +153,7 @@ export default function HospitalDashboardPage() {
     try {
       const token = localStorage.getItem('access_token')
       await axios.patch(
-        `http://localhost:8000/api/v1/machines/${machineId}/status`,
+        `${API_BASE_URL}/machines/${machineId}/status`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       )

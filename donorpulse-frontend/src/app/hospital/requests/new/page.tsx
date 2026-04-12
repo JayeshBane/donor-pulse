@@ -13,6 +13,7 @@ export default function CreateBloodRequestPage() {
   const [loading, setLoading] = useState(false)
   const [hospital, setHospital] = useState<any>(null)
   const router = useRouter()
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
   
   const [formData, setFormData] = useState({
     blood_type: '',
@@ -35,7 +36,7 @@ export default function CreateBloodRequestPage() {
     try {
       const token = localStorage.getItem('access_token')
       const response = await axios.post(
-        'http://localhost:8000/api/v1/requests/create',
+        '${API_BASE_URL}/requests/create',
         {
           hospital_id: hospital?.id,
           ...formData

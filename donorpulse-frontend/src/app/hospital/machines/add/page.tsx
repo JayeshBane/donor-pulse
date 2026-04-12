@@ -12,6 +12,8 @@ import axios from 'axios'
 export default function AddMachinePage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
   
   const [formData, setFormData] = useState({
     machine_id: '',
@@ -34,7 +36,7 @@ export default function AddMachinePage() {
     try {
       const token = localStorage.getItem('access_token')
       await axios.post(
-        'http://localhost:8000/api/v1/machines/add',
+        '${API_BASE_URL}/machines/add',
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       )

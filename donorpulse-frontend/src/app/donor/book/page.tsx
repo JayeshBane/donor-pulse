@@ -33,6 +33,7 @@ export default function BookAppointmentPage() {
   const [donationType, setDonationType] = useState('whole_blood')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     fetchDonor()
@@ -49,7 +50,7 @@ export default function BookAppointmentPage() {
       return
     }
     try {
-      const response = await axios.get(`http://localhost:8000/api/v1/donors/${donorId}`)
+      const response = await axios.get(`${API_BASE_URL}/donors/${donorId}`)
       setDonor(response.data)
     } catch (error) {
       console.error('Failed to fetch donor', error)
@@ -59,7 +60,7 @@ export default function BookAppointmentPage() {
 
   const fetchHospitals = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/v1/hospitals/')
+      const response = await axios.get('${API_BASE_URL}/hospitals/')
       setHospitals(response.data.hospitals || [])
     } catch (error) {
       console.error('Failed to fetch hospitals', error)
@@ -78,7 +79,7 @@ export default function BookAppointmentPage() {
     
     try {
       const response = await axios.get(
-        `http://localhost:8000/api/v1/appointments/slots/available`,
+        `${API_BASE_URL}/appointments/slots/available`,
         {
           params: {
             hospital_id: selectedHospital,
@@ -144,7 +145,7 @@ export default function BookAppointmentPage() {
       console.log('Sending booking data:', JSON.stringify(appointmentData, null, 2))
 
       const response = await axios.post(
-        'http://localhost:8000/api/v1/appointments/book',
+        '${API_BASE_URL}/appointments/book',
         appointmentData,
         {
           headers: {
