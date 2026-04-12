@@ -120,6 +120,15 @@ async def create_indexes():
         # Donor notifications indexes
         await db.db.donor_notifications.create_index("donor_id")
         await db.db.donor_notifications.create_index("sent_at")
+
+        # Audit logs indexes
+        await db.db.audit_logs.create_index("admin_id")
+        await db.db.audit_logs.create_index("action")
+        await db.db.audit_logs.create_index("timestamp")
+
+        # Broadcast logs indexes
+        await db.db.broadcast_logs.create_index("sent_at")
+        await db.db.broadcast_logs.create_index("type")
         
         logger.info("✅ Database indexes created successfully")
         

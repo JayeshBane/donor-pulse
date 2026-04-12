@@ -3,16 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { Droplet, LogOut, Home, User, Building2, Shield, Menu, X } from 'lucide-react'
+import { Droplet, LogOut, Home, User, Building2, Shield, Menu, X, Heart, Calendar, Activity } from 'lucide-react'
 
 export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [user, setUser] = useState<{
-    type: 'hospital' | 'admin' | 'donor' | null
+    type: 'hospital' | 'admin' | null
     name?: string
-    id?: string
   }>({ type: null })
 
   useEffect(() => {
@@ -39,7 +38,7 @@ export default function Navbar() {
     if (hospitalToken && hospitalData) {
       try {
         const hospital = JSON.parse(hospitalData)
-        setUser({ type: 'hospital', name: hospital.name, id: hospital.id })
+        setUser({ type: 'hospital', name: hospital.name })
         return
       } catch (e) {}
     }
@@ -48,45 +47,38 @@ export default function Navbar() {
   }
 
   const handleLogout = () => {
-    // Clear all auth data
     localStorage.removeItem('access_token')
     localStorage.removeItem('hospital')
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin')
-    
     setUser({ type: null })
     setIsMenuOpen(false)
     router.push('/')
   }
 
+  // Navigation links based on user type
   const getNavLinks = () => {
     const links = []
     
-    // Only show Home when NOT logged in
-    if (!user.type) {
-      links.push({ href: '/', label: 'Home', icon: <Home className="h-4 w-4" /> })
-    }
+    // Home - always visible
+    links.push({ href: '/', label: 'Home', icon: <Home className="h-4 w-4" /> })
     
-    switch (user.type) {
-      case 'admin':
-        links.push({ href: '/admin/dashboard', label: 'Dashboard', icon: <Shield className="h-4 w-4" /> })
-        links.push({ href: '/admin/donors', label: 'Donors', icon: <User className="h-4 w-4" /> })
-        break
-        
-      case 'hospital':
-        links.push({ href: '/hospital/dashboard', label: 'Dashboard', icon: <Building2 className="h-4 w-4" /> })
-        links.push({ href: '/hospital/machines', label: 'Machines', icon: <Building2 className="h-4 w-4" /> })
-        links.push({ href: '/hospital/appointments', label: 'Appointments', icon: <Building2 className="h-4 w-4" /> })
-        links.push({ href: '/hospital/requests/new', label: 'Blood Request', icon: <Droplet className="h-4 w-4" /> })
-        break
-        
-      default:
-        // Not logged in - show registration links
-        links.push({ href: '/donor/register', label: 'Donor Register', icon: <User className="h-4 w-4" /> })
-        links.push({ href: '/hospital/register', label: 'Hospital Register', icon: <Building2 className="h-4 w-4" /> })
-        links.push({ href: '/hospital/login', label: 'Hospital Login', icon: <Building2 className="h-4 w-4" /> })
-        links.push({ href: '/admin/login', label: 'Admin Login', icon: <Shield className="h-4 w-4" /> })
-        break
+    if (user.type === 'admin') {
+      links.push({ href: '/admin/dashboard', label: 'Dashboard', icon: <Shield className="h-4 w-4" /> })
+      links.push({ href: '/admin/donors', label: 'Donors', icon: <User className="h-4 w-4" /> })
+    } 
+    else if (user.type === 'hospital') {
+      links.push({ href: '/hospital/dashboard', label: 'Dashboard', icon: <Activity className="h-4 w-4" /> })
+      links.push({ href: '/hospital/machines', label: 'Machines', icon: <Building2 className="h-4 w-4" /> })
+      links.push({ href: '/hospital/appointments', label: 'Appointments', icon: <Calendar className="h-4 w-4" /> })
+      links.push({ href: '/hospital/requests/new', label: 'Blood Request', icon: <Heart className="h-4 w-4" /> })
+    } 
+    else {
+      // Not logged in - show registration/login links
+      links.push({ href: '/donor/register', label: 'Donor Register', icon: <User className="h-4 w-4" /> })
+      links.push({ href: '/hospital/register', label: 'Hospital Register', icon: <Building2 className="h-4 w-4" /> })
+      links.push({ href: '/hospital/login', label: 'Hospital Login', icon: <Building2 className="h-4 w-4" /> })
+      links.push({ href: '/admin/login', label: 'Admin Login', icon: <Shield className="h-4 w-4" /> })
     }
     
     return links
@@ -96,7 +88,7 @@ export default function Navbar() {
     <nav className="bg-blue-600 text-white shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo - Always visible, clicks go to home */}
+          {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 hover:opacity-90 transition-opacity">
             <Droplet className="h-6 w-6" />
             <span className="text-xl font-bold">DonorPulse</span>
@@ -116,13 +108,13 @@ export default function Navbar() {
               </Link>
             ))}
             
+            {/* Show user info and logout when logged in */}
             {user.type && (
               <>
                 <span className="border-l border-blue-400 h-6 mx-2"></span>
                 <div className="flex items-center space-x-3">
                   <span className="text-sm">
-                    👋 <strong>{user.name}</strong>
-                    {user.type === 'hospital' && !user.name?.includes('Hospital') && ''}
+                    👋 {user.name}
                   </span>
                   <button
                     onClick={handleLogout}
@@ -161,20 +153,18 @@ export default function Navbar() {
             ))}
             
             {user.type && (
-              <>
-                <div className="border-t border-blue-400 my-2 pt-2">
-                  <div className="px-3 py-2 text-sm">
-                    👋 Logged in as <strong>{user.name}</strong>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center space-x-2 w-full bg-red-600 hover:bg-red-700 px-3 py-2 rounded transition-colors"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>Logout</span>
-                  </button>
+              <div className="border-t border-blue-400 pt-2 mt-2">
+                <div className="px-3 py-2 text-sm">
+                  👋 Logged in as <strong>{user.name}</strong>
                 </div>
-              </>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 w-full bg-red-600 hover:bg-red-700 px-3 py-2 rounded transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Logout</span>
+                </button>
+              </div>
             )}
           </div>
         )}
