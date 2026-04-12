@@ -347,6 +347,8 @@ async def inbound_webhook(request: Request):
 
         llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
 
+        logger.info(f"LLM Response: {llm_response_text}")
+
         response = send_sms(sender, llm_response_text)
 
     return JSONResponse(content={"status": "received"})
@@ -355,15 +357,15 @@ async def inbound_webhook(request: Request):
 # -------------------------
 # Status webhook
 # -------------------------
-@router.post("/webhooks/status")
-async def status_webhook(request: Request):
-    payload = await request.json()
-    logging.info(f"📊 Status: {payload}")
+# @router.post("/webhooks/status")
+# async def status_webhook(request: Request):
+#     payload = await request.json()
+#     logging.info(f"📊 Status: {payload}")
 
-    status = payload.get("status")
-    message_uuid = payload.get("message_uuid")
+#     status = payload.get("status")
+#     message_uuid = payload.get("message_uuid")
 
-    logging.info(f"Message {message_uuid} status: {status}")
+#     logging.info(f"Message {message_uuid} status: {status}")
 
-    return JSONResponse(content={"status": "ok"})
+#     return JSONResponse(content={"status": "ok"})
 
