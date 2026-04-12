@@ -189,12 +189,6 @@ export default function HospitalDashboardPage() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('hospital')
-    router.push('/')
-  }
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -205,26 +199,6 @@ export default function HospitalDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Hospital Dashboard</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Welcome, <strong>{hospital?.name || 'Hospital'}</strong>
-                {!hospital?.is_verified && (
-                  <span className="ml-2 text-yellow-600">(Pending Verification)</span>
-                )}
-              </p>
-            </div>
-            <Button variant="secondary" onClick={handleLogout} className="flex items-center space-x-2">
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </Button>
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Machine Stats Cards */}

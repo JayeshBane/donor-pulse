@@ -119,12 +119,6 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('admin')
-    router.push('/admin/login')
-  }
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -135,26 +129,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <Shield className="h-8 w-8 text-blue-600" />
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-500">
-                  Welcome, <strong>{admin?.full_name || admin?.username}</strong> ({admin?.role})
-                </p>
-              </div>
-            </div>
-            <Button variant="secondary" onClick={handleLogout} className="flex items-center space-x-2">
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </Button>
-          </div>
-        </div>
-      </div>
+
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
