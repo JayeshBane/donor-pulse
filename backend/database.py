@@ -105,6 +105,21 @@ async def create_indexes():
         # Waitlist indexes
         await db.db.waitlist.create_index("hospital_id")
         await db.db.waitlist.create_index("expires_at")
+
+        # Blood request indexes
+        await db.db.blood_requests.create_index("hospital_id")
+        await db.db.blood_requests.create_index("status")
+        await db.db.blood_requests.create_index("expires_at")
+        await db.db.blood_requests.create_index([("hospital_id", 1), ("created_at", -1)])
+
+        # Matched donors indexes
+        await db.db.matched_donors.create_index("request_id")
+        await db.db.matched_donors.create_index("donor_id")
+        await db.db.matched_donors.create_index([("request_id", 1), ("donor_id", 1)], unique=True)
+
+        # Donor notifications indexes
+        await db.db.donor_notifications.create_index("donor_id")
+        await db.db.donor_notifications.create_index("sent_at")
         
         logger.info("✅ Database indexes created successfully")
         

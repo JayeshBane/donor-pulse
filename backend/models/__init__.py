@@ -16,5 +16,13 @@ __all__ = [
     "UpdateToken",
     "PasswordResetToken",
     "RateLimit",
-    "TokenType"
+    "TokenType",
+    "UrgencyLevel",
+    "RequestStatus", 
+    "DonorResponseStatus",
+    "BloodRequestBase",
+    "BloodRequestCreate",
+    "BloodRequestInDB",
+    "MatchedDonor",
+    "DonorResponse"
 ]

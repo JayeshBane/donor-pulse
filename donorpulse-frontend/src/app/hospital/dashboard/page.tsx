@@ -1,4 +1,3 @@
-// donorpulse-frontend\src\app\hospital\dashboard\page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -13,7 +12,11 @@ import {
   CheckCircle,
   AlertCircle,
   Clock,
-  Calendar
+  Calendar,
+  Droplet,
+  Users,
+  Target,
+  Bell
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
@@ -31,15 +34,33 @@ interface Machine {
   is_active: boolean
 }
 
+interface BloodRequest {
+  id: string
+  blood_type: string
+  quantity_units: number
+  urgency: string
+  status: string
+  created_at: string
+  expires_at: string
+  donors_contacted: number
+  donors_accepted: number
+}
+
 export default function HospitalDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [hospital, setHospital] = useState<any>(null)
   const [machines, setMachines] = useState<Machine[]>([])
+  const [bloodRequests, setBloodRequests] = useState<BloodRequest[]>([])
   const [stats, setStats] = useState({
     total: 0,
     available: 0,
     in_use: 0,
     maintenance: 0
+  })
+  const [requestStats, setRequestStats] = useState({
+    active: 0,
+    pending: 0,
+    fulfilled: 0
   })
   const router = useRouter()
 
@@ -53,6 +74,7 @@ export default function HospitalDashboardPage() {
       const parsedHospital = JSON.parse(hospitalData || '{}')
       setHospital(parsedHospital)
       fetchMachines(parsedHospital.id)
+      fetchBloodRequests(parsedHospital.id)
     }
   }, [router])
 
@@ -86,6 +108,35 @@ export default function HospitalDashboardPage() {
     }
   }
 
+  const fetchBloodRequests = async (hospitalId: string) => {
+    try {
+      const token = localStorage.getItem('access_token')
+      
+      const response = await axios.get(
+        `http://localhost:8000/api/v1/requests/hospital/${hospitalId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      
+      const requests = response.data.requests || []
+      setBloodRequests(requests.slice(0, 5)) // Show last 5 requests
+      
+      // Calculate request stats
+      const active = requests.filter((r: BloodRequest) => 
+        ['pending', 'matching', 'broadcasting'].includes(r.status)
+      ).length
+      const pending = requests.filter((r: BloodRequest) => r.status === 'pending').length
+      const fulfilled = requests.filter((r: BloodRequest) => r.status === 'fulfilled').length
+      
+      setRequestStats({
+        active,
+        pending,
+        fulfilled
+      })
+    } catch (error) {
+      console.error('Failed to fetch blood requests', error)
+    }
+  }
+
   const updateMachineStatus = async (machineId: string, status: string) => {
     try {
       const token = localStorage.getItem('access_token')
@@ -94,10 +145,27 @@ export default function HospitalDashboardPage() {
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      // Refresh machines list
       fetchMachines(hospital.id)
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Failed to update status')
+    }
+  }
+
+  const getUrgencyColor = (urgency: string) => {
+    switch(urgency) {
+      case 'sos': return 'bg-red-100 text-red-800 border-red-200'
+      case 'critical': return 'bg-orange-100 text-orange-800 border-orange-200'
+      case 'urgent': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      default: return 'bg-blue-100 text-blue-800 border-blue-200'
+    }
+  }
+
+  const getUrgencyIcon = (urgency: string) => {
+    switch(urgency) {
+      case 'sos': return <AlertCircle className="h-4 w-4" />
+      case 'critical': return <Target className="h-4 w-4" />
+      case 'urgent': return <Bell className="h-4 w-4" />
+      default: return <Droplet className="h-4 w-4" />
     }
   }
 
@@ -159,7 +227,7 @@ export default function HospitalDashboardPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
+        {/* Machine Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
@@ -202,8 +270,51 @@ export default function HospitalDashboardPage() {
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Blood Request Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="hover:shadow-lg transition-shadow bg-gradient-to-r from-red-50 to-red-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Active Blood Requests</p>
+                <p className="text-3xl font-bold text-red-600">{requestStats.active}</p>
+              </div>
+              <Droplet className="h-10 w-10 text-red-400" />
+            </div>
+          </Card>
+          
+          <Card className="hover:shadow-lg transition-shadow bg-gradient-to-r from-yellow-50 to-yellow-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Pending Responses</p>
+                <p className="text-3xl font-bold text-yellow-600">{requestStats.pending}</p>
+              </div>
+              <Clock className="h-10 w-10 text-yellow-400" />
+            </div>
+          </Card>
+          
+          <Card className="hover:shadow-lg transition-shadow bg-gradient-to-r from-green-50 to-green-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm">Fulfilled Requests</p>
+                <p className="text-3xl font-bold text-green-600">{requestStats.fulfilled}</p>
+              </div>
+              <CheckCircle className="h-10 w-10 text-green-400" />
+            </div>
+          </Card>
+        </div>
+
+        {/* Quick Actions - 3 columns now */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Link href="/hospital/requests/new">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-gradient-to-r from-red-600 to-red-700 text-white">
+              <div className="text-center">
+                <Droplet className="h-12 w-12 mx-auto mb-3" />
+                <h3 className="font-semibold text-lg mb-2">Create Blood Request</h3>
+                <p className="text-red-100 text-sm">Request blood from donors</p>
+              </div>
+            </Card>
+          </Link>
+          
           <Link href="/hospital/machines">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <div className="text-center">
@@ -214,27 +325,72 @@ export default function HospitalDashboardPage() {
             </Card>
           </Link>
           
-          <Link href="/hospital/machines/add">
+          <Link href="/hospital/appointments">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <div className="text-center">
-                <PlusCircle className="h-12 w-12 text-green-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-lg mb-2">Add New Machine</h3>
-                <p className="text-gray-600 text-sm">Add a new donation machine to your hospital</p>
+                <Calendar className="h-12 w-12 text-purple-600 mx-auto mb-3" />
+                <h3 className="font-semibold text-lg mb-2">Manage Appointments</h3>
+                <p className="text-gray-600 text-sm">View and manage donor appointments</p>
               </div>
             </Card>
           </Link>
-
-          
-        <Link href="/hospital/appointments">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <div className="text-center">
-              <Calendar className="h-12 w-12 text-purple-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-lg mb-2">Manage Appointments</h3>
-              <p className="text-gray-600 text-sm">View and manage donor appointments</p>
-            </div>
-          </Card>
-        </Link>
         </div>
+
+        {/* Recent Blood Requests */}
+        <Card title="Recent Blood Requests" className="mb-8">
+          {bloodRequests.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">No blood requests yet</p>
+              <Link href="/hospital/requests/new">
+                <Button>Create Your First Blood Request</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {bloodRequests.map((request) => (
+                <div 
+                  key={request.id} 
+                  className={`border rounded-lg p-4 ${getUrgencyColor(request.urgency)}`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-2">
+                      {getUrgencyIcon(request.urgency)}
+                      <h3 className="text-lg font-semibold capitalize">{request.urgency} Request</h3>
+                      <span className="px-2 py-1 rounded-full text-xs bg-white bg-opacity-50">
+                        {request.status}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold">{request.blood_type}</p>
+                      <p className="text-xs">{request.quantity_units} unit(s)</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4 text-sm mb-3">
+                    <div>
+                      <p className="opacity-75">Donors Contacted</p>
+                      <p className="font-semibold">{request.donors_contacted}</p>
+                    </div>
+                    <div>
+                      <p className="opacity-75">Accepted</p>
+                      <p className="font-semibold text-green-600">{request.donors_accepted}</p>
+                    </div>
+                    <div>
+                      <p className="opacity-75">Created</p>
+                      <p className="font-semibold">{new Date(request.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  
+                  <Link href={`/hospital/requests/${request.id}`}>
+                    <Button size="sm" variant="secondary" className="w-full">
+                      View Details
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* Machines List */}
         <Card title="Your Machines">
@@ -246,8 +402,9 @@ export default function HospitalDashboardPage() {
               </Link>
             </div>
           ) : (
+            <>
             <div className="space-y-4">
-              {machines.map((machine) => (
+              {machines.slice(0, 3).map((machine) => (
                 <div 
                   key={machine._id} 
                   className={`border rounded-lg p-4 ${getStatusColor(machine.status)}`}
@@ -272,12 +429,6 @@ export default function HospitalDashboardPage() {
                       <span className="font-medium">Donation Types:</span>{' '}
                       {machine.donation_types.map(t => t.replace('_', ' ').toUpperCase()).join(', ')}
                     </div>
-                    {(machine.floor || machine.room) && (
-                      <div className="col-span-2">
-                        <span className="font-medium">Location:</span>{' '}
-                        {[machine.floor, machine.room].filter(Boolean).join(' - ')}
-                      </div>
-                    )}
                   </div>
                   
                   <div className="flex gap-2 mt-3">
@@ -299,28 +450,18 @@ export default function HospitalDashboardPage() {
                         Start Donation
                       </Button>
                     )}
-                    {machine.status !== 'maintenance' && (
-                      <Button 
-                        size="sm" 
-                        variant="danger"
-                        onClick={() => updateMachineStatus(machine._id, 'maintenance')}
-                      >
-                        Maintenance
-                      </Button>
-                    )}
-                    {machine.status !== 'cleaning' && (
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={() => updateMachineStatus(machine._id, 'cleaning')}
-                      >
-                        Cleaning
-                      </Button>
-                    )}
                   </div>
                 </div>
               ))}
+              {machines.length > 3 && (
+                <Link href="/hospital/machines">
+                  <Button variant="secondary" className="w-full">
+                    View All {machines.length} Machines
+                  </Button>
+                </Link>
+              )}
             </div>
+            </>
           )}
         </Card>
       </div>
