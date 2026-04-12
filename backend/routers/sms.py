@@ -307,6 +307,15 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
             entities = extract_entities(text, intent)
             
             logging.info(f"🎯 Detected intent: {intent} (confidence: {confidence:.2f})")
+            # Add debug logging
+            logger.info(f"🎯 Detected intent: {intent} (confidence: {confidence:.2f})")
+            logger.info(f"📝 Message: {text}")
+
+            # For book_appointment, log specially
+            if intent == "book_appointment":
+                logger.info(f"📅 BOOKING INTENT DETECTED! Confidence: {confidence}")
+                logger.info(f"🔗 Booking link will be: {settings.frontend_url}/donor/book?donor_id={donor['_id']}")
+
             if entities:
                 logging.info(f"📝 Extracted entities: {entities}")
             

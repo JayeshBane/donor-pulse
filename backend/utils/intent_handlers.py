@@ -106,35 +106,37 @@ async def handle_update_intent(donor: dict, db, entities: dict) -> str:
     
     return "Unable to generate update link. No phone number found in your profile."
 
+# Replace the handle_book_appointment_intent function
+
 async def handle_book_appointment_intent(donor: dict, db, entities: dict) -> str:
     """Handle BOOK APPOINTMENT intent"""
     donor_id = str(donor["_id"])
     donor_name = donor.get('name', 'Donor')
     blood_type = entities.get("blood_type", donor.get("medical", {}).get("blood_type", "Unknown"))
     
+    # Create booking link
+    booking_link = f"{settings.frontend_url}/donor/book?donor_id={donor_id}"
+    
     # Get hospitals with available slots
     hospitals = await db.hospitals.find({
         "is_verified": True, 
         "is_active": True
-    }).limit(5).to_list(length=None)
-    
-    if not hospitals:
-        return "No hospitals available for booking at the moment. Please check back later."
-    
-    # Create booking link
-    booking_link = f"{settings.frontend_url}/donor/book?donor_id={donor_id}"
+    }).limit(3).to_list(length=None)
     
     message = f"📅 Book a Donation Appointment, {donor_name}!\n\n"
-    message += f"Click the link below to book your appointment:\n{booking_link}\n\n"
+    message += f"🔗 Click this link to book your appointment:\n{booking_link}\n\n"
     message += f"🩸 Your Blood Type: {blood_type}\n\n"
-    message += "🏥 Available Hospitals:\n"
     
-    for hospital in hospitals[:3]:
-        hospital_name = hospital.get('name', 'Unknown')
-        hospital_city = hospital.get('location', {}).get('city', 'Unknown')
-        message += f"• {hospital_name} - {hospital_city}\n"
+    if hospitals:
+        message += "🏥 Available Hospitals:\n"
+        for hospital in hospitals:
+            hospital_name = hospital.get('name', 'Unknown')
+            hospital_city = hospital.get('location', {}).get('city', 'Unknown')
+            message += f"   • {hospital_name} - {hospital_city}\n"
+        message += "\n"
     
-    message += f"\n💡 Tip: Book in advance to secure your preferred time slot!"
+    message += "💡 Tip: Book in advance to secure your preferred time slot!\n"
+    message += "📞 Need help? Contact support@donorpulse.com"
     
     return message
 

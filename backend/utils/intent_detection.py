@@ -23,7 +23,13 @@ INTENTS = {
         "description": "Get profile update link"
     },
     "book_appointment": {
-        "keywords": ["book appointment", "schedule appointment", "make appointment", "want to donate", "i want to donate", "donation appointment"],
+        "keywords": [
+            "book appointment", "schedule appointment", "make appointment", 
+            "want to donate", "i want to donate", "donation appointment",
+            "book donation", "schedule donation", "make a donation",
+            "i want to give blood", "need to donate", "donate blood",
+            "booking", "appointment"
+        ],
         "description": "Book a donation appointment"
     },
     "nearby_requests": {
@@ -64,16 +70,20 @@ def detect_intent(message: str) -> Tuple[str, float]:
                 # Exact match gets higher score
                 if keyword == message_lower:
                     score += 1.0
+                # Word boundary match
+                elif re.search(rf'\b{re.escape(keyword)}\b', message_lower):
+                    score += 0.9
+                # Partial match
                 else:
-                    score += 0.8
-                
-                # Check for word boundaries
-                if re.search(rf'\b{re.escape(keyword)}\b', message_lower):
-                    score += 0.3
+                    score += 0.6
         
         if score > best_score:
             best_score = score
             best_intent = intent
+    
+    # Lower threshold for book_appointment to catch more variations
+    if best_intent == "book_appointment" and best_score >= 0.4:
+        return best_intent, best_score
     
     # Only return intent if confidence is high enough
     if best_score >= 0.5:
@@ -97,12 +107,12 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
         
         # Extract date
         date_patterns = [
-            r'tomorrow',
-            r'today',
-            r'next (\w+)',
-            r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})'
+            (r'\btomorrow\b', 'tomorrow'),
+            (r'\btoday\b', 'today'),
+            (r'next (\w+)', None),
+            (r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})', None)
         ]
-        for pattern in date_patterns:
+        for pattern, _ in date_patterns:
             match = re.search(pattern, message_lower)
             if match:
                 entities["date"] = match.group(0)
@@ -120,10 +130,9 @@ def extract_entities(message: str, intent: str) -> Dict[str, Any]:
         if radius_match:
             entities["radius"] = int(radius_match.group(1))
         else:
-            entities["radius"] = 50  # default
+            entities["radius"] = 50
     
     elif intent == "status":
-        # Check if asking about specific thing
         if "blood type" in message_lower:
             entities["detail"] = "blood_type"
         elif "score" in message_lower or "reliability" in message_lower:
