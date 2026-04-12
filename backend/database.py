@@ -139,6 +139,13 @@ async def create_indexes():
         # Reliability history indexes
         await db.db.reliability_history.create_index("donor_id")
         await db.db.reliability_history.create_index("created_at")
+
+        # Chat sessions indexes
+        await db.db.chat_sessions.create_index("session_id", unique=True)
+        await db.db.chat_sessions.create_index("phone")
+        await db.db.chat_sessions.create_index("expires_at")
+        await db.db.chat_sessions.create_index("last_activity")
+        await db.db.chat_sessions.create_index([("phone", 1), ("is_active", 1)])
         
         logger.info("✅ Database indexes created successfully")
         

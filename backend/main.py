@@ -1,15 +1,16 @@
-# backend\main.py
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
+import asyncio
 from datetime import datetime
 
 from config import settings
-from database import connect_to_mongo, close_mongo_connection
-from routers import donor, hospital, auth, sms, machine, admin, appointment, blood_request
+from database import connect_to_mongo, close_mongo_connection, db
+from routers import donor, hospital, auth, sms, machine, admin, appointment, blood_request, location, chat_history
+from routers.chat_history import cleanup_expired_sessions
 from middleware.rate_limit import rate_limit_middleware
 
 logging.basicConfig(
@@ -18,10 +19,44 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+async def cleanup_expired_tokens():
+    """Delete expired tokens periodically"""
+    while True:
+        try:
+            # Delete expired tokens every hour
+            await asyncio.sleep(3600)
+            if db.db:
+                result = await db.db.update_tokens.delete_many({
+                    "expires_at": {"$lt": datetime.utcnow()}
+                })
+                if result.deleted_count > 0:
+                    logger.info(f"Cleaned up {result.deleted_count} expired tokens")
+        except Exception as e:
+            logger.error(f"Error cleaning up tokens: {e}")
+
+async def cleanup_expired_chat_sessions():
+    """Clean up expired chat sessions periodically"""
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Every hour
+            if db.db:
+                cleaned = await cleanup_expired_sessions(db.db)
+                if cleaned > 0:
+                    logger.info(f"Cleaned up {cleaned} expired chat sessions")
+        except Exception as e:
+            logger.error(f"Error cleaning up chat sessions: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting DonorPulse Backend...")
     await connect_to_mongo()
+    
+    # Start background task to clean up expired tokens
+    asyncio.create_task(cleanup_expired_tokens())
+    
+    # Start background task to clean up expired chat sessions
+    asyncio.create_task(cleanup_expired_chat_sessions())
+    
     logger.info(f"✅ Backend ready on port {settings.port}")
     yield
     logger.info("🛑 Shutting down...")
@@ -89,7 +124,6 @@ async def root():
         "version": "1.0.0"
     }
 
-
 # Include routers
 app.include_router(donor.router)
 app.include_router(hospital.router)
@@ -99,6 +133,8 @@ app.include_router(machine.router)
 app.include_router(admin.router)
 app.include_router(appointment.router)
 app.include_router(blood_request.router)
+app.include_router(location.router)
+app.include_router(chat_history.router)
 
 if __name__ == "__main__":
     import uvicorn

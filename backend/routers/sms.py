@@ -8,12 +8,68 @@ from config import settings
 import logging
 import requests
 from bson import ObjectId
-
+from routers.chat_history import get_or_create_session, add_message_to_session, get_session_messages
+from models.chat_history import ChatMessage, MessageRole
 from utils.sms import send_sms
 from utils.llm_inference import get_llm_reponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/sms", tags=["sms"])
+
+# Add this function to handle chat messages
+async def handle_chat_message(phone: str, message: str, donor: dict, db):
+    """Handle free-text chat messages with AI response"""
+    try:
+        # Get or create chat session
+        session = await get_or_create_session(phone, str(donor["_id"]), donor["name"], db)
+        session_id = session["session_id"]
+        
+        # Save user message
+        user_msg = ChatMessage(
+            role=MessageRole.USER,
+            content=message
+        )
+        await add_message_to_session(session_id, user_msg, db)
+        
+        # Get recent messages for context
+        recent_messages = await get_session_messages(session_id, db, limit=10)
+        
+        # Build context for AI
+        context = f"""You are DonorPulse AI Assistant helping a blood donor.
+        
+Donor Info:
+- Name: {donor['name']}
+- Blood Type: {donor.get('medical', {}).get('blood_type')}
+- City: {donor.get('location', {}).get('city')}
+- Active: {donor.get('is_active', True)}
+
+Recent conversation:
+{chr(10).join([f"{m['role']}: {m['content']}" for m in recent_messages])}
+
+Please respond helpfully and concisely. If the donor asks about their status, appointments, or blood requests, guide them to use specific commands like STATUS, AVAILABLE, UPDATE, etc.
+"""
+        
+        # Get AI response
+        from utils.llm_inference import get_llm_reponse
+        ai_response = await get_llm_reponse(context + f"\n\nDonor: {message}\n\nAssistant:")
+        
+        ai_response_text = ai_response.get("result", {}).get("response", "I'm sorry, I couldn't process that. Please try again or contact support.")
+        
+        # Save assistant message
+        assistant_msg = ChatMessage(
+            role=MessageRole.ASSISTANT,
+            content=ai_response_text
+        )
+        await add_message_to_session(session_id, assistant_msg, db)
+        
+        # Send response via SMS
+        send_sms(phone, ai_response_text[:1600])  # SMS length limit
+        
+        return {"message": ai_response_text[:1600]}
+        
+    except Exception as e:
+        logger.error(f"Error handling chat message: {e}")
+        return {"message": "I'm having trouble processing your request. Please try again later."}
 
 @router.post("/webhook")
 async def sms_webhook(
@@ -85,7 +141,7 @@ async def sms_webhook(
     elif command_upper.startswith("ETA"):
         return await handle_eta_response(phone, command_upper, donor, db)
     else:
-        return {"message": f"Unknown command: {command}. Reply HELP for available commands."}
+        return await handle_chat_message(phone, command, donor, db)
 
 async def handle_request_response(phone: str, response: str, donor: dict, db):
     """Handle donor response to blood request (YES/NO)"""
@@ -310,3 +366,4 @@ async def status_webhook(request: Request):
     logging.info(f"Message {message_uuid} status: {status}")
 
     return JSONResponse(content={"status": "ok"})
+

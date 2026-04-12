@@ -14,6 +14,8 @@ from .appointment import (
     TimeSlot, WalkInCreate, AppointmentResponse, WaitlistEntry
 )
 
+from .chat_history import ChatMessage, ChatSession, ChatSessionCreate, ChatSessionResponse, MessageRole
+
 __all__ = [
     "DonorCreate",
     "DonorInDB", 
@@ -46,5 +48,10 @@ __all__ = [
     "TimeSlot",
     "WalkInCreate",
     "AppointmentResponse",
-    "WaitlistEntry"
+    "WaitlistEntry",
+    "ChatMessage",
+    "ChatSession", 
+    "ChatSessionCreate",
+    "ChatSessionResponse",
+    "MessageRole"
 ]

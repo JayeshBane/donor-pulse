@@ -1,4 +1,3 @@
-# backend\routers\init.py
 from . import donor
 from . import hospital
 from . import auth
@@ -7,6 +6,8 @@ from . import machine
 from . import admin
 from . import appointment
 from . import blood_request
+from . import location
+from . import chat_history
 
 __all__ = [
     "donor", 
@@ -17,4 +18,6 @@ __all__ = [
     "admin", 
     "appointment", 
     "blood_request",
+    "location",
+    "chat_history"
 ]
