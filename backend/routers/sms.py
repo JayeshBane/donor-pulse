@@ -323,6 +323,8 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
     from datetime import datetime
     from routers.chat_history import get_or_create_session, add_message_to_session, get_session_messages
     from models.chat_history import MessageRole
+    from utils.intent_detection import detect_intent, extract_entities
+    from utils.intent_handlers import INTENT_HANDLERS
     
     payload = await request.json()
     logging.info(f"📩 Inbound: {payload}")
@@ -354,7 +356,13 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
         donor = await db.donors.find_one({"location.phone": phone})
         
         if donor:
-            # Use chat history for context
+            # Detect intent
+            intent, confidence = detect_intent(text)
+            entities = extract_entities(text, intent)
+            
+            logging.info(f"Detected intent: {intent} (confidence: {confidence})")
+            
+            # Get or create chat session
             session = await get_or_create_session(phone, str(donor["_id"]), donor["name"], db)
             session_id = session["session_id"]
             
@@ -362,22 +370,31 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
             user_msg = {
                 "role": MessageRole.USER.value,
                 "content": text,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
+                "intent": intent
             }
             await add_message_to_session(session_id, user_msg, db)
             
-            # Get recent messages for context (last 10 messages)
-            recent_messages = await get_session_messages(session_id, db, limit=10)
-            
-            # Build conversation history
-            conversation = []
-            for msg in recent_messages:
-                conversation.append(f"{msg['role']}: {msg['content']}")
-            
-            conversation_text = "\n".join(conversation[-6:])  # Last 6 messages for context
-            
-            # Build prompt with context
-            prompt = f"""You are DonorPulse AI Assistant helping a blood donor.
+            # Handle intent or fallback to chat
+            if intent != "chat" and confidence >= 0.6:
+                # Use intent handler
+                handler = INTENT_HANDLERS.get(intent)
+                if handler:
+                    response_text = await handler(donor, db, entities)
+                    logging.info(f"Intent '{intent}' handled by function")
+                else:
+                    response_text = "I understand what you want, but I'm having trouble processing it. Please try again or use HELP for commands."
+            else:
+                # Use AI chat with context
+                recent_messages = await get_session_messages(session_id, db, limit=10)
+                
+                conversation = []
+                for msg in recent_messages[-6:]:
+                    conversation.append(f"{msg['role']}: {msg['content']}")
+                
+                conversation_text = "\n".join(conversation)
+                
+                prompt = f"""You are DonorPulse AI Assistant helping a blood donor.
 
 Donor Name: {donor.get('name')}
 Donor Blood Type: {donor.get('medical', {}).get('blood_type')}
@@ -388,30 +405,28 @@ Previous conversation:
 
 Donor: {text}
 
-Assistant: Please respond helpfully and concisely, remembering the conversation context."""
-            
-            # Get AI response with context
-            llm_response = await get_llm_reponse(prompt)
-            llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+Assistant: Please respond helpfully and concisely."""
+                
+                llm_response = await get_llm_reponse(prompt)
+                response_text = llm_response.get("result", {"response": "I'm here to help! Please let me know what you need."}).get("response")
             
             # Save assistant message
             assistant_msg = {
                 "role": MessageRole.ASSISTANT.value,
-                "content": llm_response_text,
+                "content": response_text,
                 "timestamp": datetime.utcnow().isoformat()
             }
             await add_message_to_session(session_id, assistant_msg, db)
             
             # Send response
-            send_sms(sender, llm_response_text)
-            logging.info(f"Sent response with context to {sender}")
+            send_sms(sender, response_text)
+            logging.info(f"Sent response to {sender}")
             
         else:
-            # Donor not found - use simple response without context
-            logging.info(f"Donor not found for {phone}, using simple response")
+            # Donor not found
             llm_response = await get_llm_reponse(text)
-            llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
-            send_sms(sender, llm_response_text)
+            response_text = llm_response.get("result", {"response": "Please register as a donor first at our website."}).get("response")
+            send_sms(sender, response_text)
 
     return JSONResponse(content={"status": "received"})
 
