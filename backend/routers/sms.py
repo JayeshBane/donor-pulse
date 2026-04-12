@@ -1,4 +1,3 @@
-# backend\routers\sms.py
 from fastapi import APIRouter, HTTPException, Depends, Request, Header
 from fastapi.responses import JSONResponse
 from database import get_db
@@ -8,141 +7,16 @@ from config import settings
 import logging
 import requests
 from bson import ObjectId
-from routers.chat_history import get_or_create_session, add_message_to_session, get_session_messages
-from models.chat_history import ChatMessage, MessageRole
+
 from utils.sms import send_sms
-from utils.llm_inference import get_llm_reponse
-from datetime import datetime, timedelta
+from utils.llm_inference import get_llm_reponse, get_constrained_response, is_blood_donation_related
+from routers.chat_history import get_or_create_session, add_message_to_session, get_session_messages
+from models.chat_history import MessageRole
+from utils.intent_detection import detect_intent, extract_entities
+from utils.intent_handlers import INTENT_HANDLERS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/sms", tags=["sms"])
-
-# Add this function to handle chat messages
-async def handle_chat_message(phone: str, message: str, donor: dict, db):
-    """Handle free-text chat messages with AI response"""
-    try:
-        # Get or create chat session
-        session = await get_or_create_session(phone, str(donor["_id"]), donor["name"], db)
-        session_id = session["session_id"]
-        
-        # Save user message
-        user_msg = ChatMessage(
-            role=MessageRole.USER,
-            content=message
-        )
-        await add_message_to_session(session_id, user_msg, db)
-        
-        # Get recent messages for context
-        recent_messages = await get_session_messages(session_id, db, limit=10)
-        
-        # Build context for AI
-        context = f"""You are DonorPulse AI Assistant helping a blood donor.
-        
-Donor Info:
-- Name: {donor['name']}
-- Blood Type: {donor.get('medical', {}).get('blood_type')}
-- City: {donor.get('location', {}).get('city')}
-- Active: {donor.get('is_active', True)}
-
-Recent conversation:
-{chr(10).join([f"{m['role']}: {m['content']}" for m in recent_messages])}
-
-Please respond helpfully and concisely. If the donor asks about their status, appointments, or blood requests, guide them to use specific commands like STATUS, AVAILABLE, UPDATE, etc.
-"""
-        
-        # Get AI response
-        from utils.llm_inference import get_llm_reponse
-        ai_response = await get_llm_reponse(context + f"\n\nDonor: {message}\n\nAssistant:")
-        
-        ai_response_text = ai_response.get("result", {}).get("response", "I'm sorry, I couldn't process that. Please try again or contact support.")
-        
-        # Save assistant message
-        assistant_msg = ChatMessage(
-            role=MessageRole.ASSISTANT,
-            content=ai_response_text
-        )
-        await add_message_to_session(session_id, assistant_msg, db)
-        
-        # Send response via SMS
-        send_sms(phone, ai_response_text[:1600])  # SMS length limit
-        
-        return {"message": ai_response_text[:1600]}
-        
-    except Exception as e:
-        logger.error(f"Error handling chat message: {e}")
-        return {"message": "I'm having trouble processing your request. Please try again later."}
-
-@router.post("/webhook")
-async def sms_webhook(
-    request: Request,
-    db=Depends(get_db),
-    x_twilio_signature: str = Header(None)
-):
-    """Handle incoming SMS commands with signature verification"""
-    
-    # Verify webhook signature in production
-    if settings.environment == "production" and settings.twilio_auth_token:
-        body = await request.body()
-        body_str = body.decode()
-        
-        if not verify_webhook_signature(x_twilio_signature, body_str, settings.twilio_auth_token):
-            logger.warning(f"Invalid webhook signature from {request.client.host}")
-            raise HTTPException(status_code=403, detail="Invalid signature")
-    
-    # Parse form data
-    form_data = await request.form()
-    phone = form_data.get("From", "").strip()
-    command = form_data.get("Body", "").strip()
-    
-    if not phone or not command:
-        return {"message": "Invalid request"}
-    
-    # Remove '+' prefix if present
-    phone = phone.lstrip('+')
-    
-    donor = await db.donors.find_one({"location.phone": phone})
-    if not donor:
-        return {"message": "Donor not found. Please register at our website first."}
-    
-    command_upper = command.upper().strip()
-    
-    # Rate limit SMS commands (max 10 per hour)
-    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
-    recent_commands = await db.sms_logs.count_documents({
-        "phone": phone,
-        "timestamp": {"$gte": one_hour_ago}
-    })
-    
-    if recent_commands >= 10:
-        return {"message": "Rate limit exceeded. Please try again later."}
-    
-    # Log the command
-    await db.sms_logs.insert_one({
-        "phone": phone,
-        "command": command_upper,
-        "timestamp": datetime.utcnow(),
-        "donor_id": str(donor["_id"])
-    })
-    
-    # Check for YES/NO responses to blood requests
-    if command_upper == "YES" or command_upper == "Y":
-        return await handle_request_response(phone, "YES", donor, db)
-    elif command_upper == "NO" or command_upper == "N":
-        return await handle_request_response(phone, "NO", donor, db)
-    elif command_upper == "STATUS":
-        return await handle_status(donor, db)
-    elif command_upper == "HELP":
-        return await handle_help()
-    elif command_upper == "AVAILABLE":
-        return await handle_available(donor, db)
-    elif command_upper == "UNAVAILABLE":
-        return await handle_unavailable(donor, db)
-    elif command_upper == "UPDATE":
-        return await handle_update_link(phone, db, donor)
-    elif command_upper.startswith("ETA"):
-        return await handle_eta_response(phone, command_upper, donor, db)
-    else:
-        return await handle_chat_message(phone, command, donor, db)
 
 async def handle_request_response(phone: str, response: str, donor: dict, db):
     """Handle donor response to blood request (YES/NO)"""
@@ -192,7 +66,7 @@ async def handle_request_response(phone: str, response: str, donor: dict, db):
             hospital = await db.hospitals.find_one({"_id": ObjectId(blood_request["hospital_id"])})
             hospital_name = hospital.get("name", "the hospital") if hospital else "the hospital"
             
-            # Send confirmation message
+            # Send confirmation message with location request
             message = f"""✅ Thank you for accepting the blood request!
 
 Please proceed to {hospital_name} at your earliest convenience.
@@ -316,7 +190,78 @@ async def handle_update_link(phone: str, db, donor: dict):
     except Exception as e:
         logger.error(f"Error generating update link: {e}")
         return {"message": "Unable to generate update link. Please contact support."}
+
+@router.post("/webhook")
+async def sms_webhook(
+    request: Request,
+    db=Depends(get_db),
+    x_twilio_signature: str = Header(None)
+):
+    """Handle incoming SMS commands with signature verification"""
     
+    # Verify webhook signature in production
+    if settings.environment == "production" and settings.twilio_auth_token:
+        body = await request.body()
+        body_str = body.decode()
+        
+        if not verify_webhook_signature(x_twilio_signature, body_str, settings.twilio_auth_token):
+            logger.warning(f"Invalid webhook signature from {request.client.host}")
+            raise HTTPException(status_code=403, detail="Invalid signature")
+    
+    # Parse form data
+    form_data = await request.form()
+    phone = form_data.get("From", "").strip()
+    command = form_data.get("Body", "").strip()
+    
+    if not phone or not command:
+        return {"message": "Invalid request"}
+    
+    # Remove '+' prefix if present
+    phone = phone.lstrip('+')
+    
+    donor = await db.donors.find_one({"location.phone": phone})
+    if not donor:
+        return {"message": "Donor not found. Please register at our website first."}
+    
+    command_upper = command.upper().strip()
+    
+    # Rate limit SMS commands (max 10 per hour)
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    recent_commands = await db.sms_logs.count_documents({
+        "phone": phone,
+        "timestamp": {"$gte": one_hour_ago}
+    })
+    
+    if recent_commands >= 10:
+        return {"message": "Rate limit exceeded. Please try again later."}
+    
+    # Log the command
+    await db.sms_logs.insert_one({
+        "phone": phone,
+        "command": command_upper,
+        "timestamp": datetime.utcnow(),
+        "donor_id": str(donor["_id"])
+    })
+    
+    # Check for YES/NO responses to blood requests
+    if command_upper == "YES" or command_upper == "Y":
+        return await handle_request_response(phone, "YES", donor, db)
+    elif command_upper == "NO" or command_upper == "N":
+        return await handle_request_response(phone, "NO", donor, db)
+    elif command_upper == "STATUS":
+        return await handle_status(donor, db)
+    elif command_upper == "HELP":
+        return await handle_help()
+    elif command_upper == "AVAILABLE":
+        return await handle_available(donor, db)
+    elif command_upper == "UNAVAILABLE":
+        return await handle_unavailable(donor, db)
+    elif command_upper == "UPDATE":
+        return await handle_update_link(phone, db, donor)
+    elif command_upper.startswith("ETA"):
+        return await handle_eta_response(phone, command_upper, donor, db)
+    else:
+        return {"message": f"Unknown command: {command}. Reply HELP for available commands."}
 
 @router.post("/webhooks/inbound")
 async def inbound_webhook(request: Request, db=Depends(get_db)):
@@ -390,38 +335,15 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
                 else:
                     response_text = "I understand what you want, but I'm having trouble processing it. Please try again or send HELP for available commands."
             else:
-                # Use AI chat with context for natural conversation
-                recent_messages = await get_session_messages(session_id, db, limit=10)
-                
-                # Build conversation history
-                conversation = []
-                for msg in recent_messages[-6:]:
-                    conversation.append(f"{msg['role']}: {msg['content']}")
-                
-                conversation_text = "\n".join(conversation)
-                
-                # Build prompt with donor context and intent info
-                prompt = f"""You are DonorPulse AI Assistant helping a blood donor via WhatsApp.
-
-Donor Information:
-- Name: {donor.get('name')}
-- Blood Type: {donor.get('medical', {}).get('blood_type')}
-- City: {donor.get('location', {}).get('city')}
-- Active Status: {'Active' if donor.get('is_active', True) else 'Inactive'}
-- Reliability Score: {donor.get('reliability_score', 100)}/100
-
-Detected Intent: {intent} (confidence: {confidence:.2f})
-
-Previous conversation:
-{conversation_text}
-
-Donor: {text}
-
-Assistant: Please respond helpfully and concisely. If the donor is asking for something that requires a command, guide them to use the appropriate command (STATUS, AVAILABLE, UPDATE, etc.). Keep responses WhatsApp-friendly (short and clear)."""
-                
-                # Get AI response with context
-                llm_response = await get_llm_reponse(prompt)
-                response_text = llm_response.get("result", {}).get("response", "I'm here to help! Please let me know what you need.")
+                # Use constrained AI chat for natural conversation
+                donor_context = {
+                    'name': donor.get('name'),
+                    'blood_type': donor.get('medical', {}).get('blood_type'),
+                    'city': donor.get('location', {}).get('city'),
+                    'is_active': donor.get('is_active', True),
+                    'reliability_score': donor.get('reliability_score', 100)
+                }
+                response_text = await get_constrained_response(text, donor_context)
             
             # Save assistant message
             assistant_msg = {
@@ -445,19 +367,17 @@ Assistant: Please respond helpfully and concisely. If the donor is asking for so
 
     return JSONResponse(content={"status": "received"})
 
-
 # -------------------------
 # Status webhook
 # -------------------------
-# @router.post("/webhooks/status")
-# async def status_webhook(request: Request):
-#     payload = await request.json()
-#     logging.info(f"📊 Status: {payload}")
+@router.post("/webhooks/status")
+async def status_webhook(request: Request):
+    payload = await request.json()
+    logging.info(f"📊 Status: {payload}")
 
-#     status = payload.get("status")
-#     message_uuid = payload.get("message_uuid")
+    status = payload.get("status")
+    message_uuid = payload.get("message_uuid")
 
-#     logging.info(f"Message {message_uuid} status: {status}")
+    logging.info(f"Message {message_uuid} status: {status}")
 
-#     return JSONResponse(content={"status": "ok"})
-
+    return JSONResponse(content={"status": "ok"})

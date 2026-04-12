@@ -15,7 +15,7 @@ def calculate_cooldown(donor: dict) -> tuple:
     
     from datetime import datetime, timedelta
     if isinstance(last_donation, str):
-        last_donation = datetime.fromisoformat(last_donation)
+        last_donation = datetime.fromisoformat(last_donation.replace('Z', '+00:00'))
     
     days_since = (datetime.utcnow() - last_donation).days
     cooldown_days = 56
@@ -51,6 +51,12 @@ async def handle_status_intent(donor: dict, db, entities: dict) -> str:
         else:
             last_donation_str = str(last_donation)[:10]
     
+    # Get pending requests count
+    pending_count = await db.matched_donors.count_documents({
+        "donor_id": str(donor["_id"]),
+        "status": "pending"
+    })
+    
     message = f"""📊 Donor Status - {donor_name}
 
 ✅ Active: {'Yes' if is_active else 'No'}
@@ -58,9 +64,12 @@ async def handle_status_intent(donor: dict, db, entities: dict) -> str:
 🎯 Reliability: {reliability_score}/100
 🩸 Blood Type: {blood_type}
 📍 City: {city}
-📅 Last Donation: {last_donation_str}
+📅 Last Donation: {last_donation_str}"""
 
-Reply UPDATE to get profile edit link."""
+    if pending_count > 0:
+        message += f"\n📨 Pending requests: {pending_count}"
+    
+    message += "\n\nReply UPDATE to get profile edit link."
     
     return message
 
