@@ -1,5 +1,6 @@
 // donorpulse-frontend\src\app\hospital\machines\page.tsx
 'use client'
+import api from '@/lib/api';
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'

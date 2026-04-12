@@ -1,7 +1,5 @@
-# backend\config.py
 from pydantic_settings import BaseSettings
 from typing import List, Optional
-import os
 
 class Settings(BaseSettings):
     # MongoDB
@@ -13,15 +11,16 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 8
     
+    # URLs
+    backend_url: str = "http://localhost:8000"
+    frontend_url: str = "http://localhost:3000"
+    
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:8000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     port: int = 8000
     
     # Environment
-    environment: str = "development"  # development, staging, production
-    
-    # Frontend URL for magic links
-    frontend_url: str = "http://localhost:3000"
+    environment: str = "development"
     
     # Twilio (Optional)
     twilio_account_sid: Optional[str] = ""
@@ -38,9 +37,17 @@ class Settings(BaseSettings):
     cloudflare_account_id: Optional[str] = ""
     cloudflare_auth_token: Optional[str] = ""
     
+    # OpenRouteService
+    ors_api_key: str = ""
+    ors_api_url: str = "https://api.openrouteservice.org/v2/directions/driving-car"
+    
+    # OpenWeatherMap
+    weather_api_key: str = ""
+    weather_api_url: str = "https://api.openweathermap.org/data/2.5/weather"
+    
     # Rate limiting
-    rate_limit_requests: int = 100  # per minute
-    rate_limit_window: int = 60  # seconds
+    rate_limit_requests: int = 100
+    rate_limit_window: int = 60
     
     # Donor cooldown period in days
     donor_cooldown_days: int = 56

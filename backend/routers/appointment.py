@@ -8,6 +8,7 @@ from models.appointment import (
     AppointmentCreate, AppointmentInDB, AppointmentStatus,
     WalkInCreate, AppointmentResponse, WaitlistEntry
 )
+from config import settings
 from models.machine import MachineStatus
 from middleware.auth import get_verified_hospital, get_current_hospital
 from utils.auth import generate_magic_token
@@ -227,8 +228,8 @@ async def book_appointment(
     "message": "Appointment booked successfully",
     "appointment_id": str(result.inserted_id),
     "booking_token": booking_token,
-    "receipt_url": f"http://localhost:3000/donor/appointment/{booking_token}",
-    "booking_link": f"http://localhost:3000/donor/appointment/{booking_token}"
+    "receipt_url": f"{settings.frontend_url}/donor/appointment/{booking_token}",
+    "booking_link": f"{settings.frontend_url}/donor/appointment/{booking_token}"
 }
         
     except HTTPException:

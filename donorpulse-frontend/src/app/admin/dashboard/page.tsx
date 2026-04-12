@@ -31,6 +31,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import api from '@/lib/api'
 
 interface Hospital {
   id: string;
@@ -104,14 +105,14 @@ export default function AdminDashboardPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [pendingRes, verifiedRes, statsRes, donorsRes] = await Promise.all([
-        axios.get("http://localhost:8000/api/v1/admin/hospitals/pending", {
+        api.get("/admin/hospitals/pending", {
           headers,
         }),
-        axios.get("http://localhost:8000/api/v1/admin/hospitals/verified", {
+        api.get("/api/v1/admin/hospitals/verified", {
           headers,
         }),
-        axios.get("http://localhost:8000/api/v1/admin/stats", { headers }),
-        axios.get("http://localhost:8000/api/v1/donors/", { headers }),
+        api.get("/api/v1/admin/stats", { headers }),
+        api.get("/api/v1/donors/", { headers }),
       ]);
 
       setPendingHospitals(pendingRes.data.hospitals);
@@ -139,11 +140,11 @@ export default function AdminDashboardPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [auditRes, hospitalRes, donorRes] = await Promise.all([
-        axios.get("http://localhost:8000/api/v1/admin/logs/audit", { headers }),
-        axios.get("http://localhost:8000/api/v1/admin/logs/hospitals", {
+        api.get("/admin/logs/audit", { headers }),
+        api.get("/admin/logs/hospitals", {
           headers,
         }),
-        axios.get("http://localhost:8000/api/v1/admin/logs/donors", {
+        api.get("/admin/logs/donors", {
           headers,
         }),
       ]);
@@ -161,8 +162,8 @@ export default function AdminDashboardPage() {
   const verifyHospital = async (hospitalId: string) => {
     try {
       const token = localStorage.getItem("admin_token");
-      await axios.patch(
-        `http://localhost:8000/api/v1/admin/hospitals/${hospitalId}/verify`,
+      await api.patch(
+  `/api/v1/admin/hospitals/${hospitalId}/verify`,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -179,8 +180,8 @@ export default function AdminDashboardPage() {
 
     try {
       const token = localStorage.getItem("admin_token");
-      await axios.patch(
-        `http://localhost:8000/api/v1/admin/hospitals/${hospitalId}/reject`,
+      await api.patch(
+  `/api/v1/admin/hospitals/${hospitalId}/reject`,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -197,8 +198,8 @@ export default function AdminDashboardPage() {
   ) => {
     try {
       const token = localStorage.getItem("admin_token");
-      await axios.patch(
-        `http://localhost:8000/api/v1/admin/hospitals/${hospitalId}/toggle-active`,
+      await api.patch(
+  `/api/v1/admin/hospitals/${hospitalId}/toggle-active`,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -214,8 +215,8 @@ export default function AdminDashboardPage() {
   const toggleDonorActive = async (donorId: string, currentStatus: boolean) => {
     try {
       const token = localStorage.getItem("admin_token");
-      await axios.patch(
-        `http://localhost:8000/api/v1/donors/${donorId}/toggle-active`,
+      await api.patch(
+  `/api/v1/donors/${donorId}/toggle-active`,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );

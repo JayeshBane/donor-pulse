@@ -1,4 +1,5 @@
 'use client'
+import api from '@/lib/api';
 
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'

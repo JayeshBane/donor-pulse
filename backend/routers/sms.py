@@ -48,7 +48,7 @@ async def handle_request_response(phone: str, response: str, donor: dict, db):
             
             # Make internal API call
             api_response = requests.post(
-                f"http://localhost:8000/api/v1/requests/{pending_response['request_id']}/respond",
+                f"{settings.backend_url}/api/v1/requests/{pending_response['request_id']}/respond",
                 json=response_data,
                 timeout=10
             )
@@ -371,7 +371,7 @@ async def inbound_webhook(request: Request, db=Depends(get_db)):
         else:
             # Donor not registered
             logging.info(f"Donor not found for {phone}")
-            response_text = "❌ You are not registered as a donor. Please register at our website: http://localhost:3000/donor/register"
+            response_text = f"❌ You are not registered as a donor. Please register at our website: {settings.frontend_url}/donor/register"
             send_sms(sender, response_text)
 
     return JSONResponse(content={"status": "received"})
