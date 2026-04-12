@@ -725,3 +725,52 @@ async def get_donor_logs(
     except Exception as e:
         logger.error(f"Error getting donor logs: {e}")
         raise HTTPException(status_code=500, detail="Failed to get donor logs")
+    
+@router.post("/hospitals/{hospital_id}/geocode")
+async def geocode_hospital(
+    hospital_id: str,
+    address_data: dict,
+    db=Depends(get_db)
+):
+    """Manually geocode a hospital address"""
+    import requests
+    try:
+        if not ObjectId.is_valid(hospital_id):
+            raise HTTPException(status_code=400, detail="Invalid hospital ID")
+        
+        address = address_data.get("address")
+        city = address_data.get("city")
+        pin_code = address_data.get("pin_code")
+        
+        full_address = f"{address}, {city}, {pin_code}"
+        
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            "q": full_address,
+            "format": "json",
+            "limit": 1
+        }
+        headers = {"User-Agent": "DonorPulseApp/1.0"}
+        
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                lat = float(data[0]["lat"])
+                lng = float(data[0]["lon"])
+                
+                await db.hospitals.update_one(
+                    {"_id": ObjectId(hospital_id)},
+                    {"$set": {"location.lat": lat, "location.lng": lng}}
+                )
+                
+                return {"message": "Location updated", "lat": lat, "lng": lng}
+        
+        raise HTTPException(status_code=400, detail="Could not geocode address")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error geocoding hospital: {e}")
+        raise HTTPException(status_code=500, detail="Failed to geocode address")

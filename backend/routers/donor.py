@@ -1,7 +1,7 @@
-# backend\routers\donor.py
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from typing import Optional, List
 from datetime import datetime
+import requests
 from bson import ObjectId
 from database import get_db
 from models.donor import DonorCreate
@@ -11,9 +11,35 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/donors", tags=["donors"])
 
+async def geocode_address(address: str, city: str, pin_code: str) -> tuple:
+    """Convert address to lat/lng using OpenStreetMap Nominatim (free)"""
+    try:
+        full_address = f"{address}, {city}, {pin_code}"
+        
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            "q": full_address,
+            "format": "json",
+            "limit": 1
+        }
+        headers = {"User-Agent": "DonorPulseApp/1.0"}
+        
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                return float(data[0]["lat"]), float(data[0]["lon"])
+        
+        return None, None
+        
+    except Exception as e:
+        logger.error(f"Geocoding failed: {e}")
+        return None, None
+
 @router.post("/register", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def register_donor(donor: DonorCreate, db=Depends(get_db)):
-    """Register a new donor"""
+    """Register a new donor with automatic geocoding"""
     try:
         phone = str(donor.location.phone).strip()
         
@@ -54,6 +80,17 @@ async def register_donor(donor: DonorCreate, db=Depends(get_db)):
         if donor_dict["location"].get("email"):
             donor_dict["location"]["email"] = donor_dict["location"]["email"].lower().strip()
         
+        # Get coordinates from address (free geocoding)
+        lat, lng = await geocode_address(
+            donor.location.address,
+            donor.location.city,
+            donor.location.pin_code
+        )
+        if lat and lng:
+            donor_dict["location"]["lat"] = lat
+            donor_dict["location"]["lng"] = lng
+            logger.info(f"Geocoded donor address: {lat}, {lng}")
+        
         donor_dict["created_at"] = datetime.utcnow()
         donor_dict["updated_at"] = datetime.utcnow()
         
@@ -80,7 +117,8 @@ async def register_donor(donor: DonorCreate, db=Depends(get_db)):
         return {
             "message": "Donor registered successfully",
             "donor_id": str(result.inserted_id),
-            "phone": phone
+            "phone": phone,
+            "location_found": lat is not None
         }
         
     except HTTPException:

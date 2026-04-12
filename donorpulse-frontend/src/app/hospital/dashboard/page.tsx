@@ -1,4 +1,3 @@
-// donorpulse-frontend\src\app\hospital\dashboard\page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -17,7 +16,8 @@ import {
   Droplet,
   Users,
   Target,
-  Bell
+  Bell,
+  Shield
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
@@ -63,6 +63,7 @@ export default function HospitalDashboardPage() {
     pending: 0,
     fulfilled: 0
   })
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -74,6 +75,13 @@ export default function HospitalDashboardPage() {
     } else {
       const parsedHospital = JSON.parse(hospitalData || '{}')
       setHospital(parsedHospital)
+      
+      // Check if hospital is verified
+      if (!parsedHospital.is_verified) {
+        setLoading(false)
+        return
+      }
+      
       fetchMachines(parsedHospital.id)
       fetchBloodRequests(parsedHospital.id)
     }
@@ -91,7 +99,6 @@ export default function HospitalDashboardPage() {
       const machinesData = response.data
       setMachines(machinesData)
       
-      // Calculate stats
       const available = machinesData.filter((m: Machine) => m.status === 'available').length
       const in_use = machinesData.filter((m: Machine) => m.status === 'in_use').length
       const maintenance = machinesData.filter((m: Machine) => m.status === 'maintenance').length
@@ -119,9 +126,8 @@ export default function HospitalDashboardPage() {
       )
       
       const requests = response.data.requests || []
-      setBloodRequests(requests.slice(0, 5)) // Show last 5 requests
+      setBloodRequests(requests.slice(0, 5))
       
-      // Calculate request stats
       const active = requests.filter((r: BloodRequest) => 
         ['pending', 'matching', 'broadcasting'].includes(r.status)
       ).length
@@ -133,8 +139,11 @@ export default function HospitalDashboardPage() {
         pending,
         fulfilled
       })
-    } catch (error) {
-      console.error('Failed to fetch blood requests', error)
+    } catch (error: any) {
+      // If 403, just show empty state - hospital not verified yet
+      if (error.response?.status !== 403) {
+        console.error('Failed to fetch blood requests', error)
+      }
     }
   }
 
@@ -190,6 +199,39 @@ export default function HospitalDashboardPage() {
     }
   }
 
+  // Show pending verification message
+  if (hospital && !hospital.is_verified) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto p-6">
+          <Card>
+            <div className="text-center py-8">
+              <Shield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Pending Verification</h2>
+              <p className="text-gray-600 mb-4">
+                Your hospital account is awaiting admin verification.
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                You will be able to access all features once your account is verified.
+                Please check back later or contact support.
+              </p>
+              <Button 
+                variant="secondary" 
+                onClick={() => {
+                  localStorage.removeItem('access_token')
+                  localStorage.removeItem('hospital')
+                  router.push('/')
+                }}
+              >
+                Return to Home
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -200,7 +242,6 @@ export default function HospitalDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Machine Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -245,7 +286,7 @@ export default function HospitalDashboardPage() {
           </Card>
         </div>
 
-        {/* Blood Request Stats Cards */}
+        {/* Blood Request Stats Cards - Only show if hospital is verified */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="hover:shadow-lg transition-shadow bg-gradient-to-r from-red-50 to-red-100">
             <div className="flex items-center justify-between">
@@ -278,7 +319,7 @@ export default function HospitalDashboardPage() {
           </Card>
         </div>
 
-        {/* Quick Actions - 3 columns now */}
+        {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Link href="/hospital/requests/new">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-gradient-to-r from-red-600 to-red-700 text-white">

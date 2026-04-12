@@ -1,20 +1,51 @@
-# backend\routers\hospital.py
 from fastapi import APIRouter, HTTPException, status, Depends
 from datetime import datetime
 from typing import Optional
+import requests
 from database import get_db
 from models.hospital import HospitalCreate, HospitalLogin, HospitalResponse
 from utils.auth import hash_password, verify_password, create_jwt_token
-from middleware.auth import get_admin_hospital, get_current_hospital
 from config import settings
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/hospitals", tags=["hospitals"])
 
+async def geocode_address(address: str, city: str, pin_code: str) -> tuple:
+    """Convert address to lat/lng using OpenStreetMap Nominatim (free)"""
+    try:
+        full_address = f"{address}, {city}, {pin_code}"
+        
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            "q": full_address,
+            "format": "json",
+            "limit": 1,
+            "addressdetails": 1
+        }
+        
+        headers = {
+            "User-Agent": "DonorPulseApp/1.0"
+        }
+        
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                lat = float(data[0]["lat"])
+                lng = float(data[0]["lon"])
+                return lat, lng
+        
+        return None, None
+        
+    except Exception as e:
+        logger.error(f"Geocoding failed: {e}")
+        return None, None
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
-    """Register a new hospital"""
+    """Register a new hospital with automatic geocoding"""
     try:
         phone = str(hospital.phone).strip()
         
@@ -39,6 +70,21 @@ async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
         
         hashed_pwd = hash_password(hospital.password)
         
+        # Get coordinates from address (free geocoding)
+        lat, lng = await geocode_address(
+            hospital.location.address,
+            hospital.location.city,
+            hospital.location.pin_code
+        )
+        
+        location_dict = hospital.location.dict()
+        if lat and lng:
+            location_dict["lat"] = lat
+            location_dict["lng"] = lng
+            logger.info(f"Geocoded hospital address: {lat}, {lng}")
+        else:
+            logger.warning(f"Could not geocode address for {hospital.name}")
+        
         hospital_dict = {
             "name": hospital.name,
             "type": hospital.type,
@@ -47,7 +93,7 @@ async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
             "phone": phone,
             "username": hospital.username,
             "hashed_password": hashed_pwd,
-            "location": hospital.location.dict(),
+            "location": location_dict,
             "operational": hospital.operational.dict() if hospital.operational else {},
             "is_verified": False,
             "is_active": True,
@@ -60,7 +106,8 @@ async def register_hospital(hospital: HospitalCreate, db=Depends(get_db)):
         
         return {
             "message": "Hospital registered successfully. Awaiting admin verification.",
-            "hospital_id": str(result.inserted_id)
+            "hospital_id": str(result.inserted_id),
+            "location_found": lat is not None
         }
         
     except HTTPException:
@@ -124,7 +171,6 @@ async def list_hospitals(
 ):
     """List hospitals with filters (public endpoint)"""
     try:
-        # Validate pagination
         if skip < 0:
             raise HTTPException(status_code=400, detail="Skip must be >= 0")
         if limit < 1 or limit > 200:
@@ -136,7 +182,7 @@ async def list_hospitals(
         if is_verified is not None:
             query["is_verified"] = is_verified
         
-        query["is_active"] = True  # Only show active hospitals to public
+        query["is_active"] = True
         
         total = await db.hospitals.count_documents(query)
         cursor = db.hospitals.find(query).skip(skip).limit(limit)
