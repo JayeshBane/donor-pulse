@@ -12,11 +12,11 @@ class Settings(BaseSettings):
     jwt_expiry_hours: int = 8
     
     # URLs
-    backend_url: str = "http://localhost:8000"
-    frontend_url: str = "http://localhost:3000"
+    backend_url: str = "https://donor-pulse-backend.vercel.app/"
+    frontend_url: str = "https://donor-pulse-dusky.vercel.app/"
     
     # CORS
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = "http://localhost:3000,https://donor-pulse-dusky.vercel.app/"
     port: int = 8000
     
     # Environment
