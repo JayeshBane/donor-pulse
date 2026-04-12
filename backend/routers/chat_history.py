@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends, Request
 from datetime import datetime, timedelta
 from bson import ObjectId
 from database import get_db
-from models.chat_history import ChatSession, ChatMessage, MessageRole, ChatSessionCreate
+from models.chat_history import ChatMessage, MessageRole
 import secrets
 import logging
 
@@ -27,6 +27,7 @@ async def get_or_create_session(phone: str, donor_id: str, donor_name: str, db) 
     })
     
     if existing_session:
+        logger.info(f"Found existing session for {phone}: {existing_session['session_id']}")
         # Update last activity
         await db.chat_sessions.update_one(
             {"_id": existing_session["_id"]},
@@ -38,6 +39,9 @@ async def get_or_create_session(phone: str, donor_id: str, donor_name: str, db) 
     session_id = generate_session_id()
     expires_at = now + timedelta(hours=SESSION_DURATION_HOURS)
     
+    # Get donor info
+    donor = await db.donors.find_one({"_id": ObjectId(donor_id)})
+    
     session_data = {
         "session_id": session_id,
         "phone": phone,
@@ -48,39 +52,59 @@ async def get_or_create_session(phone: str, donor_id: str, donor_name: str, db) 
         "expires_at": expires_at,
         "last_activity": now,
         "is_active": True,
-        "context": {}
+        "context": {
+            "donor_blood_type": donor.get("medical", {}).get("blood_type") if donor else None,
+            "donor_city": donor.get("location", {}).get("city") if donor else None,
+            "donor_active": donor.get("is_active", True) if donor else True
+        }
     }
     
-    await db.chat_sessions.insert_one(session_data)
+    result = await db.chat_sessions.insert_one(session_data)
+    logger.info(f"Created new session for {phone}: {session_id}")
     
     # Add welcome message
-    welcome_message = ChatMessage(
-        role=MessageRole.ASSISTANT,
-        content="👋 Welcome to DonorPulse! I'm your blood donation assistant.\n\nYou can ask me about:\n• Blood donation eligibility\n• Appointment booking\n• Blood requests\n• Your donor status\n• And more!\n\nHow can I help you today?"
-    )
+    welcome_message = {
+        "role": MessageRole.ASSISTANT.value,
+        "content": "👋 Welcome to DonorPulse! I'm your blood donation assistant.\n\nYou can ask me about:\n• Blood donation eligibility\n• Appointment booking\n• Blood requests\n• Your donor status\n• And more!\n\nHow can I help you today?",
+        "timestamp": now.isoformat()
+    }
     
     await add_message_to_session(session_id, welcome_message, db)
     
-    return session_data
+    # Return the updated session
+    return await db.chat_sessions.find_one({"session_id": session_id})
 
-async def add_message_to_session(session_id: str, message: ChatMessage, db) -> bool:
+async def add_message_to_session(session_id: str, message: dict, db) -> bool:
     """Add a message to chat session"""
-    result = await db.chat_sessions.update_one(
-        {"session_id": session_id, "is_active": True},
-        {
-            "$push": {"messages": message.dict()},
-            "$set": {"last_activity": datetime.utcnow()}
-        }
-    )
-    return result.modified_count > 0
+    try:
+        result = await db.chat_sessions.update_one(
+            {"session_id": session_id, "is_active": True},
+            {
+                "$push": {"messages": message},
+                "$set": {"last_activity": datetime.utcnow()}
+            }
+        )
+        
+        if result.modified_count > 0:
+            logger.info(f"Added message to session {session_id}: {message.get('role')}")
+            return True
+        else:
+            logger.warning(f"Failed to add message to session {session_id}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Error adding message to session: {e}")
+        return False
 
 async def get_session_messages(session_id: str, db, limit: int = 20) -> list:
     """Get recent messages from session"""
     session = await db.chat_sessions.find_one({"session_id": session_id, "is_active": True})
     if not session:
+        logger.warning(f"Session not found: {session_id}")
         return []
     
     messages = session.get("messages", [])
+    logger.info(f"Retrieved {len(messages)} messages from session {session_id}")
     return messages[-limit:]
 
 async def update_session_context(session_id: str, context: dict, db):
@@ -142,6 +166,8 @@ async def send_message(
         if not phone or not user_message:
             raise HTTPException(status_code=400, detail="Phone and message are required")
         
+        logger.info(f"Received message from {phone}: {user_message[:50]}...")
+        
         # Get donor
         donor = await db.donors.find_one({"location.phone": phone})
         if not donor:
@@ -152,42 +178,60 @@ async def send_message(
         session_id = session["session_id"]
         
         # Save user message
-        user_msg = ChatMessage(
-            role=MessageRole.USER,
-            content=user_message
-        )
+        user_msg = {
+            "role": MessageRole.USER.value,
+            "content": user_message,
+            "timestamp": datetime.utcnow().isoformat()
+        }
         await add_message_to_session(session_id, user_msg, db)
         
-        # Get recent messages for context
-        recent_messages = await get_session_messages(session_id, db, limit=10)
+        # Get ALL messages for full context
+        all_messages = await get_session_messages(session_id, db, limit=50)
         
-        # Build context for AI
-        context = f"""You are DonorPulse AI Assistant helping a blood donor.
+        # Build conversation history for AI
+        conversation_history = []
+        for msg in all_messages:
+            conversation_history.append(f"{msg['role']}: {msg['content']}")
         
-Donor Info:
+        conversation_text = "\n".join(conversation_history)
+        
+        # Get donor context
+        donor_context = session.get("context", {})
+        
+        # Build prompt for AI
+        prompt = f"""You are DonorPulse AI Assistant helping a blood donor.
+
+Donor Information:
 - Name: {donor['name']}
 - Blood Type: {donor.get('medical', {}).get('blood_type')}
 - City: {donor.get('location', {}).get('city')}
-- Active: {donor.get('is_active', True)}
+- Active Status: {'Active' if donor.get('is_active', True) else 'Inactive'}
+- Reliability Score: {donor.get('reliability_score', 100)}/100
 
-Recent conversation:
-{chr(10).join([f"{m['role']}: {m['content']}" for m in recent_messages])}
+Previous Conversation:
+{conversation_text}
 
-Please respond helpfully and concisely. If the donor asks about their status, appointments, or blood requests, guide them to use specific commands like STATUS, AVAILABLE, UPDATE, etc.
-"""
+Please provide a helpful, friendly response. Keep it concise. If the donor asks about commands, guide them to use STATUS, AVAILABLE, UPDATE, etc.
+
+Donor: {user_message}
+
+Assistant:"""
         
         # Get AI response
         from utils.llm_inference import get_llm_reponse
-        ai_response = await get_llm_reponse(context + f"\n\nDonor: {user_message}\n\nAssistant:")
+        ai_response = await get_llm_reponse(prompt)
         
         ai_response_text = ai_response.get("result", {}).get("response", "I'm sorry, I couldn't process that. Please try again or contact support.")
         
         # Save assistant message
-        assistant_msg = ChatMessage(
-            role=MessageRole.ASSISTANT,
-            content=ai_response_text
-        )
+        assistant_msg = {
+            "role": MessageRole.ASSISTANT.value,
+            "content": ai_response_text,
+            "timestamp": datetime.utcnow().isoformat()
+        }
         await add_message_to_session(session_id, assistant_msg, db)
+        
+        logger.info(f"Sent response to {phone}: {ai_response_text[:50]}...")
         
         return {
             "message": ai_response_text,
@@ -216,6 +260,14 @@ async def clear_chat_session(
         if result.modified_count == 0:
             raise HTTPException(status_code=404, detail="Session not found")
         
+        # Add fresh welcome message
+        welcome_message = {
+            "role": MessageRole.ASSISTANT.value,
+            "content": "Chat history cleared. How can I help you today?",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await add_message_to_session(session_id, welcome_message, db)
+        
         return {"message": "Chat session cleared successfully"}
         
     except HTTPException:
@@ -232,17 +284,49 @@ async def get_chat_stats(
     try:
         total_sessions = await db.chat_sessions.count_documents({})
         active_sessions = await db.chat_sessions.count_documents({"is_active": True})
-        total_messages = await db.chat_sessions.aggregate([
+        
+        # Count total messages across all sessions
+        pipeline = [
             {"$unwind": "$messages"},
             {"$count": "total"}
-        ]).to_list(length=1)
+        ]
+        result = await db.chat_sessions.aggregate(pipeline).to_list(length=1)
+        total_messages = result[0]["total"] if result else 0
         
         return {
             "total_sessions": total_sessions,
             "active_sessions": active_sessions,
-            "total_messages": total_messages[0]["total"] if total_messages else 0
+            "total_messages": total_messages
         }
         
     except Exception as e:
         logger.error(f"Error getting chat stats: {e}")
         raise HTTPException(status_code=500, detail="Failed to get stats")
+
+@router.get("/messages/{session_id}")
+async def get_session_messages_endpoint(
+    session_id: str,
+    limit: int = 20,
+    db=Depends(get_db)
+):
+    """Get messages from a specific session"""
+    try:
+        session = await db.chat_sessions.find_one({"session_id": session_id})
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        messages = session.get("messages", [])[-limit:]
+        
+        return {
+            "session_id": session_id,
+            "donor_name": session.get("donor_name"),
+            "messages": messages,
+            "total_messages": len(session.get("messages", [])),
+            "expires_at": session.get("expires_at").isoformat() if session.get("expires_at") else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting session messages: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get messages")
