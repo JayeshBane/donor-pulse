@@ -9,8 +9,9 @@ import logging
 import requests
 from bson import ObjectId
 
+from utils.booking_flow import handle_schedule_appointment_message
 from utils.sms import send_sms
-from utils.llm_inference import get_llm_reponse
+from utils.llm_inference import detect_intent, get_llm_reponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/sms", tags=["sms"])
@@ -262,7 +263,7 @@ async def handle_update_link(phone: str, db, donor: dict):
     
 
 @router.post("/webhooks/inbound")
-async def inbound_webhook(request: Request):
+async def inbound_webhook(request: Request, db=Depends(get_db)):
     payload = await request.json()
     logging.info(f"📩 Inbound: {payload}")
 
@@ -279,17 +280,55 @@ async def inbound_webhook(request: Request):
 
     text = payload.get("text", "")
     sender = payload.get("from")
-    profile = payload.get("profile")
-    sender_name = profile.get("name")
+    profile = payload.get("profile") or {}
+    sender_name = profile.get("name", "Unknown")
 
     if text and text.lower() == "join job cupid":
         return
 
     if not is_location:
         logging.info(f"From: {sender} ({sender_name}) | Text: {text}")
-        llm_response = await get_llm_reponse(text)
+        llm_response_text = None
 
-        llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
+        booking_response = await handle_schedule_appointment_message(
+            db=db,
+            phone=sender,
+            text=text,
+            force_start=False,
+        )
+
+        if booking_response:
+            llm_response_text = booking_response
+        else:
+            intent_result = await detect_intent(text)
+            logging.info(
+                "Detected intent for %s: %s (confidence=%s)",
+                sender,
+                intent_result.get("intent"),
+                intent_result.get("confidence"),
+            )
+
+            if intent_result.get("intent") == "schedule_appointment":
+                llm_response_text = await handle_schedule_appointment_message(
+                    db=db,
+                    phone=sender,
+                    text=text,
+                    force_start=True,
+                )
+            elif intent_result.get("intent") == "cancel_appointment":
+                llm_response_text = (
+                    "I can help cancel your appointment. "
+                    "Please share the appointment date or booking reference."
+                )
+            elif intent_result.get("intent") == "check_appointment":
+                llm_response_text = (
+                    "I can check your appointment status. "
+                    "Please share the appointment date or booking reference."
+                )
+
+        if not llm_response_text:
+            llm_response = await get_llm_reponse(text)
+            llm_response_text = llm_response.get("result", {"response": "Error"}).get("response")
 
         response = send_sms(sender, llm_response_text)
 

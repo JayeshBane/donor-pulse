@@ -106,6 +106,11 @@ async def create_indexes():
         await db.db.waitlist.create_index("hospital_id")
         await db.db.waitlist.create_index("expires_at")
 
+        # Booking session indexes
+        await db.db.booking_sessions.create_index("phone", unique=True)
+        await db.db.booking_sessions.create_index("expires_at")
+        
+
         # Blood request indexes
         await db.db.blood_requests.create_index("hospital_id")
         await db.db.blood_requests.create_index("status")
