@@ -24,9 +24,9 @@ async def cleanup_expired_tokens():
     """Delete expired tokens periodically"""
     while True:
         try:
-            # Delete expired tokens every hour
             await asyncio.sleep(3600)
-            if db.db:
+            # ✅ Check if db.db is not None instead of using truth value
+            if db.db is not None:
                 result = await db.db.update_tokens.delete_many({
                     "expires_at": {"$lt": datetime.utcnow()}
                 })
@@ -39,8 +39,9 @@ async def cleanup_expired_chat_sessions():
     """Clean up expired chat sessions periodically"""
     while True:
         try:
-            await asyncio.sleep(3600)  # Every hour
-            if db.db:
+            await asyncio.sleep(3600)
+            # ✅ Check if db.db is not None instead of using truth value
+            if db.db is not None:
                 cleaned = await cleanup_expired_sessions(db.db)
                 if cleaned > 0:
                     logger.info(f"Cleaned up {cleaned} expired chat sessions")
