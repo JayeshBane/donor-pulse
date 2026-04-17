@@ -1,13 +1,12 @@
 // donorpulse-frontend\src\app\donor\book\page.tsx
 'use client'
-import api from '@/lib/api';
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Calendar, Clock, User, Phone, CheckCircle, Building2 } from 'lucide-react'
-import axios from 'axios'
 import { useSearchParams, useRouter } from 'next/navigation'
+import apiClient from '@/lib/api-client'
 
 interface TimeSlot {
   machine_id: string
@@ -49,7 +48,8 @@ export default function BookAppointmentPage() {
       return
     }
     try {
-      const response = await axios.get(`https://donor-pulse-backend.vercel.app/api/v1/donors/${donorId}`)
+      // Use apiClient instead of hardcoded URL
+      const response = await apiClient.get(`/donors/${donorId}`)
       setDonor(response.data)
     } catch (error) {
       console.error('Failed to fetch donor', error)
@@ -59,7 +59,8 @@ export default function BookAppointmentPage() {
 
   const fetchHospitals = async () => {
     try {
-      const response = await axios.get('https://donor-pulse-backend.vercel.app/api/v1/hospitals/')
+      // Use apiClient instead of hardcoded URL
+      const response = await apiClient.get('/hospitals/')
       setHospitals(response.data.hospitals || [])
     } catch (error) {
       console.error('Failed to fetch hospitals', error)
@@ -77,16 +78,14 @@ export default function BookAppointmentPage() {
     setSelectedSlot(null)
     
     try {
-      const response = await axios.get(
-        `https://donor-pulse-backend.vercel.app/api/v1/appointments/slots/available`,
-        {
-          params: {
-            hospital_id: selectedHospital,
-            date: selectedDate,
-            donation_type: donationType
-          }
+      // Use apiClient instead of hardcoded URL
+      const response = await apiClient.get('/appointments/slots/available', {
+        params: {
+          hospital_id: selectedHospital,
+          date: selectedDate,
+          donation_type: donationType
         }
-      )
+      })
       
       console.log('Slots response:', response.data)
       
@@ -143,15 +142,8 @@ export default function BookAppointmentPage() {
 
       console.log('Sending booking data:', JSON.stringify(appointmentData, null, 2))
 
-      const response = await axios.post(
-        'https://donor-pulse-backend.vercel.app/api/v1/appointments/book',
-        appointmentData,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      )
+      // Use apiClient instead of hardcoded URL
+      const response = await apiClient.post('/appointments/book', appointmentData)
 
       console.log('Booking response:', response.data)
       

@@ -18,9 +18,9 @@ import {
   Building2,
   QrCode
 } from 'lucide-react'
-import axios from 'axios'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import apiClient from '@/lib/api-client'
 
 interface AppointmentDetails {
   id: string
@@ -49,10 +49,8 @@ export default function AppointmentReceiptPage() {
 
   const fetchAppointment = async () => {
     try {
-      // First get appointment by token
-      const response = await axios.get(
-        `https://donor-pulse-backend.vercel.app/api/v1/appointments/token/${token}`
-      )
+      // Use apiClient instead of hardcoded URL
+      const response = await apiClient.get(`/appointments/token/${token}`)
       setAppointment(response.data)
     } catch (error: any) {
       console.error('Failed to fetch appointment', error)

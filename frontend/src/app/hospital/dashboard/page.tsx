@@ -1,5 +1,5 @@
+// frontend\src\app\hospital\dashboard\page.tsx
 'use client'
-import api from '@/lib/api';
 
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
@@ -21,8 +21,8 @@ import {
   Shield
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
 import Link from 'next/link'
+import apiClient from '@/lib/api-client'
 
 interface Machine {
   _id: string
@@ -90,12 +90,8 @@ export default function HospitalDashboardPage() {
 
   const fetchMachines = async (hospitalId: string) => {
     try {
-      const token = localStorage.getItem('access_token')
-      
-      const response = await axios.get(
-        `http://localhost:8000/api/v1/machines/hospital/${hospitalId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded localhost URL
+      const response = await apiClient.get(`/machines/hospital/${hospitalId}`)
       
       const machinesData = response.data
       setMachines(machinesData)
@@ -119,12 +115,8 @@ export default function HospitalDashboardPage() {
 
   const fetchBloodRequests = async (hospitalId: string) => {
     try {
-      const token = localStorage.getItem('access_token')
-      
-      const response = await axios.get(
-        `http://localhost:8000/api/v1/requests/hospital/${hospitalId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded localhost URL
+      const response = await apiClient.get(`/requests/hospital/${hospitalId}`)
       
       const requests = response.data.requests || []
       setBloodRequests(requests.slice(0, 5))
@@ -150,13 +142,11 @@ export default function HospitalDashboardPage() {
 
   const updateMachineStatus = async (machineId: string, status: string) => {
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.patch(
-        `http://localhost:8000/api/v1/machines/${machineId}/status`,
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      fetchMachines(hospital.id)
+      // Use apiClient instead of hardcoded localhost URL
+      await apiClient.patch(`/machines/${machineId}/status`, { status })
+      if (hospital) {
+        fetchMachines(hospital.id)
+      }
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Failed to update status')
     }

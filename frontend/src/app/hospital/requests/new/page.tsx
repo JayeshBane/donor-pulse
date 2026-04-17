@@ -1,13 +1,12 @@
 // donorpulse-frontend\src\app\hospital\requests\new\page.tsx
 'use client'
-import api from '@/lib/api';
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import apiClient from '@/lib/api-client'
 
 export default function CreateBloodRequestPage() {
   const [loading, setLoading] = useState(false)
@@ -33,15 +32,11 @@ export default function CreateBloodRequestPage() {
     setLoading(true)
     
     try {
-      const token = localStorage.getItem('access_token')
-      const response = await axios.post(
-        'https://donor-pulse-backend.vercel.app/api/v1/requests/create',
-        {
-          hospital_id: hospital?.id,
-          ...formData
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded URL with axios
+      const response = await apiClient.post('/requests/create', {
+        hospital_id: hospital?.id,
+        ...formData
+      })
       
       console.log('Response:', response.data)
       

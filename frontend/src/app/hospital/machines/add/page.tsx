@@ -1,13 +1,12 @@
 // donorpulse-frontend\src\app\hospital\machines\add\page.tsx
 'use client'
-import api from '@/lib/api';
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
+import apiClient from '@/lib/api-client'
 
 export default function AddMachinePage() {
   const [loading, setLoading] = useState(false)
@@ -32,12 +31,8 @@ export default function AddMachinePage() {
     setLoading(true)
     
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.post(
-        'https://donor-pulse-backend.vercel.app/api/v1/machines/add',
-        formData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded URL
+      await apiClient.post('/machines/add', formData)
       alert('Machine added successfully!')
       router.push('/hospital/dashboard')
     } catch (error: any) {

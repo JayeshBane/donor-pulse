@@ -1,4 +1,5 @@
-﻿/** @type {import('next').NextConfig} */
+﻿// frontend\next.config.js
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: [

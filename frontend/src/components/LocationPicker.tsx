@@ -1,3 +1,4 @@
+// frontend\src\components\LocationPicker.tsx
 'use client'
 
 import { useState } from 'react'

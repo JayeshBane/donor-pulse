@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useParams, useRouter } from "next/navigation";
-import axios from "axios";
 import {
   Droplet,
   Clock,
@@ -17,6 +16,7 @@ import {
   Map,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import apiClient from "@/lib/api-client";
 
 const GoogleDonorsMap = dynamic(() => import("@/components/GoogleDonorsMap"), {
   ssr: false,
@@ -74,7 +74,6 @@ export default function RequestDetailsPage() {
     lng: number;
   } | null>(null);
   const [mapDonors, setMapDonors] = useState<any[]>([]);
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     if (requestId) {
@@ -87,11 +86,8 @@ export default function RequestDetailsPage() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem("access_token");
-      const response = await axios.get(
-        `${API_BASE_URL}/requests/${requestId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      // Use apiClient instead of axios with API_BASE_URL
+      const response = await apiClient.get(`/requests/${requestId}`);
       setRequest(response.data);
 
       // Process donors for map
@@ -111,13 +107,9 @@ export default function RequestDetailsPage() {
   };
 
   const processDonorsForMap = async (donors: MatchedDonor[]) => {
-    const token = localStorage.getItem("access_token");
     const mapDonorsList = [];
 
     for (const donor of donors) {
-      // Show ALL donors regardless of status
-      // if (donor.status !== 'accepted') continue  // REMOVE THIS LINE
-
       let lat = donor.live_lat || donor.profile_lat;
       let lng = donor.live_lng || donor.profile_lng;
       let distance = donor.distance_km;
@@ -126,10 +118,10 @@ export default function RequestDetailsPage() {
       // If no location in matched_donor, fetch from donor profile
       if (!lat || !lng) {
         try {
-          const donorsRes = await axios.get(
-            `${API_BASE_URL}/donors/?search=${donor.donor_name}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
+          // Use apiClient instead of axios with API_BASE_URL
+          const donorsRes = await apiClient.get(`/donors/`, {
+            params: { search: donor.donor_name }
+          });
 
           if (donorsRes.data.donors && donorsRes.data.donors.length > 0) {
             const donorData = donorsRes.data.donors[0];
@@ -139,10 +131,8 @@ export default function RequestDetailsPage() {
             // Calculate route using backend API for accepted donors only
             if (lat && lng && hospitalLocation && donor.status === "accepted") {
               try {
-                const routeRes = await axios.get(
-                  `${API_BASE_URL}/location/route/${donorData._id}/${requestId}`,
-                  { headers: { Authorization: `Bearer ${token}` } },
-                );
+                // Use apiClient instead of axios with API_BASE_URL
+                const routeRes = await apiClient.get(`/location/route/${donorData._id}/${requestId}`);
                 distance = routeRes.data.distance_km;
                 eta = routeRes.data.eta_minutes;
               } catch (err) {
@@ -169,7 +159,7 @@ export default function RequestDetailsPage() {
           lng: lng,
           distance: distance,
           eta: eta,
-          status: donor.status, // Keep original status for color coding
+          status: donor.status,
         });
       }
     }
@@ -179,15 +169,12 @@ export default function RequestDetailsPage() {
 
   const fetchHospitalLocation = async () => {
     try {
-      const token = localStorage.getItem("access_token");
       const hospitalData = localStorage.getItem("hospital");
 
       if (hospitalData) {
         const hospital = JSON.parse(hospitalData);
-        const response = await axios.get(
-          `${API_BASE_URL}/hospitals/${hospital.id}`,
-          { headers: { Authorization: `Bearer ${token}` } },
-        );
+        // Use apiClient instead of axios with API_BASE_URL
+        const response = await apiClient.get(`/hospitals/${hospital.id}`);
 
         // Check nested location object
         const hospitalLat = response.data.location?.lat || response.data.lat;
@@ -213,12 +200,8 @@ export default function RequestDetailsPage() {
     if (!confirm("Are you sure you want to cancel this request?")) return;
 
     try {
-      const token = localStorage.getItem("access_token");
-      await axios.patch(
-        `${API_BASE_URL}/requests/${requestId}/cancel`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      // Use apiClient instead of axios with API_BASE_URL
+      await apiClient.patch(`/requests/${requestId}/cancel`, {});
       alert("Request cancelled");
       router.push("/hospital/dashboard");
     } catch (error: any) {

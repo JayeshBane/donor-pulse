@@ -1,6 +1,5 @@
 // donorpulse-frontend\src\app\admin\login\page.tsx
 'use client'
-import api from '@/lib/api';
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -8,8 +7,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { User, Lock, Shield } from 'lucide-react'
-import axios from 'axios'
 import { useRouter } from 'next/navigation'
+import apiClient from '@/lib/api-client'
 
 interface LoginFormData {
   username: string
@@ -26,7 +25,8 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError(null)
     try {
-      const response = await axios.post('https://donor-pulse-backend.vercel.app/api/v1/admin/login', data)
+      // Use apiClient instead of hardcoded URL
+      const response = await apiClient.post('/admin/login', data)
       localStorage.setItem('admin_token', response.data.access_token)
       localStorage.setItem('admin', JSON.stringify(response.data.admin))
       router.push('/admin/dashboard')

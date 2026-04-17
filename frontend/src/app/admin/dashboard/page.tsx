@@ -1,4 +1,4 @@
-// donorpulse-frontend\src\app\admin\dashboard\page.tsx
+// frontend\src\app\admin\dashboard\page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -31,7 +31,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import api from '@/lib/api'
+import apiClient from '@/lib/api-client';
 
 interface Hospital {
   id: string;
@@ -56,9 +56,9 @@ interface Donor {
     city: string;
     phone: string;
   };
-  blood_type?: string; // Fallback
-  city?: string; // Fallback
-  phone?: string; // Fallback
+  blood_type?: string;
+  city?: string;
+  phone?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -78,7 +78,6 @@ export default function AdminDashboardPage() {
   const [broadcastType, setBroadcastType] = useState("donors");
   const [sending, setSending] = useState(false);
 
-  // Logs state
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [hospitalLogs, setHospitalLogs] = useState<any[]>([]);
   const [donorLogs, setDonorLogs] = useState<any[]>([]);
@@ -102,31 +101,18 @@ export default function AdminDashboardPage() {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("admin_token");
-      const headers = { Authorization: `Bearer ${token}` };
-
+      
+      // Use apiClient for all requests - NO HARDCODED URLs
       const [pendingRes, verifiedRes, statsRes, donorsRes] = await Promise.all([
-        axios.get(
-          `https://donor-pulse-backend.vercel.app/api/v1/admin/hospitals/pending`,
-          { headers }
-        ),
-        axios.get(
-          `https://donor-pulse-backend.vercel.app/api/v1/admin/hospitals/verified`,
-          { headers }
-        ),
-        axios.get(
-          `https://donor-pulse-backend.vercel.app/api/v1/admin/stats`,
-          { headers }
-        ),
-        axios.get(
-          `https://donor-pulse-backend.vercel.app/api/v1/donors`,
-          { headers }
-        ),
+        apiClient.get("/admin/hospitals/pending"),
+        apiClient.get("/admin/hospitals/verified"),
+        apiClient.get("/admin/stats"),
+        apiClient.get("/donors"),
       ]);
 
       setPendingHospitals(pendingRes.data.hospitals);
       setVerifiedHospitals(verifiedRes.data.hospitals);
 
-      // Map donors to ensure we have the right structure
       const mappedDonors = (donorsRes.data.donors || []).map((donor: any) => ({
         ...donor,
         medical: donor.medical || { blood_type: donor.blood_type },
@@ -144,22 +130,11 @@ export default function AdminDashboardPage() {
   const fetchLogs = async () => {
     setLogsLoading(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const headers = { Authorization: `Bearer ${token}` };
-
+      // Use apiClient for logs - NO HARDCODED URLs
       const [auditRes, hospitalRes, donorRes] = await Promise.all([
-        axios.get(
-          `https://donor-pulse-backend.vercel.app/admin/logs/audit`,
-          { headers }
-        ),
-        axios.get(
-          `https://donor-pulse-backend.vercel.app/admin/logs/hospitals`,
-          { headers }
-        ),
-        axios.get(
-          `https://donor-pulse-backend.vercel.app/admin/logs/donors`,
-          { headers }
-        ),
+        apiClient.get("/admin/logs/audit"),
+        apiClient.get("/admin/logs/hospitals"),
+        apiClient.get("/admin/logs/donors"),
       ]);
 
       setAuditLogs(auditRes.data.logs || []);
@@ -174,12 +149,7 @@ export default function AdminDashboardPage() {
 
   const verifyHospital = async (hospitalId: string) => {
     try {
-      const token = localStorage.getItem("admin_token");
-      await api.patch(
-  `/api/v1/admin/hospitals/${hospitalId}/verify`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      await apiClient.patch(`/admin/hospitals/${hospitalId}/verify`);
       alert("Hospital verified successfully!");
       fetchData();
     } catch (error: any) {
@@ -192,12 +162,7 @@ export default function AdminDashboardPage() {
       return;
 
     try {
-      const token = localStorage.getItem("admin_token");
-      await api.patch(
-  `/api/v1/admin/hospitals/${hospitalId}/reject`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      await apiClient.patch(`/admin/hospitals/${hospitalId}/reject`);
       alert("Hospital registration rejected");
       fetchData();
     } catch (error: any) {
@@ -210,12 +175,7 @@ export default function AdminDashboardPage() {
     currentStatus: boolean,
   ) => {
     try {
-      const token = localStorage.getItem("admin_token");
-      await api.patch(
-  `/api/v1/admin/hospitals/${hospitalId}/toggle-active`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      await apiClient.patch(`/admin/hospitals/${hospitalId}/toggle-active`);
       alert(
         `Hospital ${currentStatus ? "deactivated" : "activated"} successfully`,
       );
@@ -227,12 +187,7 @@ export default function AdminDashboardPage() {
 
   const toggleDonorActive = async (donorId: string, currentStatus: boolean) => {
     try {
-      const token = localStorage.getItem("admin_token");
-      await api.patch(
-  `/api/v1/donors/${donorId}/toggle-active`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      await apiClient.patch(`/donors/${donorId}/toggle-active`);
       alert(
         `Donor ${currentStatus ? "deactivated" : "activated"} successfully`,
       );
@@ -253,10 +208,10 @@ export default function AdminDashboardPage() {
       const token = localStorage.getItem("admin_token");
       const endpoint =
         broadcastType === "donors"
-          ? `${process.env.NEXT_PUBLIC_API_URL}/admin/broadcast/donors`
-    : `${process.env.NEXT_PUBLIC_API_URL}/admin/broadcast/hospitals`;
+          ? "/admin/broadcast/donors"
+          : "/admin/broadcast/hospitals";
 
-      const response = await axios.post(
+      const response = await apiClient.post(
         endpoint,
         { message: broadcastMessage },
         {
@@ -264,7 +219,7 @@ export default function AdminDashboardPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        },
+        }
       );
 
       alert(
@@ -306,7 +261,6 @@ export default function AdminDashboardPage() {
     alert("Data exported successfully!");
   };
 
-  // Chart data functions
   const bloodTypeDistribution = () => {
     const counts: Record<string, number> = {};
     donors.forEach((donor) => {
@@ -610,7 +564,9 @@ export default function AdminDashboardPage() {
                         <td className="px-4 py-2">{hospital.city}</td>
                         <td className="px-4 py-2">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs ${hospital.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              hospital.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                            }`}
                           >
                             {hospital.is_active ? "Active" : "Inactive"}
                           </span>
@@ -777,26 +733,42 @@ export default function AdminDashboardPage() {
               <nav className="-mb-px flex space-x-4">
                 <button
                   onClick={() => setLogFilter("all")}
-                  className={`py-2 px-3 text-sm font-medium ${logFilter === "all" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`py-2 px-3 text-sm font-medium ${
+                    logFilter === "all"
+                      ? "border-b-2 border-blue-500 text-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
                 >
                   All (
                   {auditLogs.length + hospitalLogs.length + donorLogs.length})
                 </button>
                 <button
                   onClick={() => setLogFilter("audit")}
-                  className={`py-2 px-3 text-sm font-medium ${logFilter === "audit" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`py-2 px-3 text-sm font-medium ${
+                    logFilter === "audit"
+                      ? "border-b-2 border-blue-500 text-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
                 >
                   Admin Actions ({auditLogs.length})
                 </button>
                 <button
                   onClick={() => setLogFilter("hospitals")}
-                  className={`py-2 px-3 text-sm font-medium ${logFilter === "hospitals" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`py-2 px-3 text-sm font-medium ${
+                    logFilter === "hospitals"
+                      ? "border-b-2 border-blue-500 text-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
                 >
                   Hospitals ({hospitalLogs.length})
                 </button>
                 <button
                   onClick={() => setLogFilter("donors")}
-                  className={`py-2 px-3 text-sm font-medium ${logFilter === "donors" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+                  className={`py-2 px-3 text-sm font-medium ${
+                    logFilter === "donors"
+                      ? "border-b-2 border-blue-500 text-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
                 >
                   Donors ({donorLogs.length})
                 </button>

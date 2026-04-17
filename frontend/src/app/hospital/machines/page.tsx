@@ -1,6 +1,5 @@
 // donorpulse-frontend\src\app\hospital\machines\page.tsx
 'use client'
-import api from '@/lib/api';
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
@@ -10,7 +9,7 @@ import {
   Plus, Settings, Activity, AlertCircle, CheckCircle, 
   Power, PowerOff, Edit, Trash2 
 } from 'lucide-react'
-import axios from 'axios'
+import apiClient from '@/lib/api-client'
 
 interface Machine {
   _id: string
@@ -31,7 +30,6 @@ export default function HospitalMachinesPage() {
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [hospital, setHospital] = useState<any>(null)
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
   const [newMachine, setNewMachine] = useState({
     machine_id: '',
     name: '',
@@ -56,13 +54,10 @@ export default function HospitalMachinesPage() {
 
   const fetchMachines = async () => {
     try {
-      const token = localStorage.getItem('access_token')
       const hospitalData = JSON.parse(localStorage.getItem('hospital') || '{}')
       
-      const response = await axios.get(
-        `${API_BASE_URL}/machines/hospital/${hospitalData.id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded URL with API_BASE_URL
+      const response = await apiClient.get(`/machines/hospital/${hospitalData.id}`)
       setMachines(response.data)
     } catch (error) {
       console.error('Failed to fetch machines', error)
@@ -73,12 +68,8 @@ export default function HospitalMachinesPage() {
 
   const addMachine = async () => {
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.post(
-        '${API_BASE_URL}/machines/add',
-        newMachine,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded URL with template literal bug
+      await apiClient.post('/machines/add', newMachine)
       alert('Machine added successfully!')
       setShowAddForm(false)
       fetchMachines()
@@ -102,12 +93,8 @@ export default function HospitalMachinesPage() {
 
   const updateMachineStatus = async (machineId: string, status: string) => {
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.patch(
-        `${API_BASE_URL}/machines/${machineId}/status`,
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded URL
+      await apiClient.patch(`/machines/${machineId}/status`, { status })
       fetchMachines()
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Failed to update status')
@@ -116,12 +103,8 @@ export default function HospitalMachinesPage() {
 
   const toggleMachineActive = async (machineId: string, currentActive: boolean) => {
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.patch(
-        `${API_BASE_URL}/machines/${machineId}/toggle-active`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      // Use apiClient instead of hardcoded URL
+      await apiClient.patch(`/machines/${machineId}/toggle-active`, {})
       alert(`Machine ${currentActive ? 'deactivated' : 'activated'} successfully`)
       fetchMachines()
     } catch (error: any) {

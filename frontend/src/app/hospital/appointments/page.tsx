@@ -1,6 +1,5 @@
 // donorpulse-frontend\src\app\hospital\appointments\page.tsx
 'use client'
-import api from '@/lib/api';
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
@@ -16,7 +15,7 @@ import {
   Calendar,
   AlertCircle
 } from 'lucide-react'
-import axios from 'axios'
+import apiClient from '@/lib/api-client'
 
 interface Appointment {
   id: string
@@ -58,14 +57,10 @@ export default function HospitalAppointmentsPage() {
 
   const fetchAppointments = async () => {
     try {
-      const token = localStorage.getItem('access_token')
-      const response = await axios.get(
-        `https://donor-pulse-backend.vercel.app/api/v1/appointments/hospital/${hospital.id}`,
-        {
-          params: { date: selectedDate },
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      )
+      // Use apiClient instead of hardcoded URL
+      const response = await apiClient.get(`/appointments/hospital/${hospital.id}`, {
+        params: { date: selectedDate }
+      })
       let appointmentsData = response.data.appointments || []
       
       // Apply status filter
@@ -84,36 +79,34 @@ export default function HospitalAppointmentsPage() {
   const updateStatus = async (appointmentId: string, action: string) => {
     setActionLoading(appointmentId)
     try {
-      const token = localStorage.getItem('access_token')
       let endpoint = ''
       let successMessage = ''
       
       switch(action) {
         case 'checkin':
-          endpoint = `https://donor-pulse-backend.vercel.app/api/v1/appointments/${appointmentId}/checkin`
+          endpoint = `/appointments/${appointmentId}/checkin`
           successMessage = 'Donor checked in successfully!'
           break
         case 'start':
-          endpoint = `https://donor-pulse-backend.vercel.app/api/v1/appointments/${appointmentId}/start`
+          endpoint = `/appointments/${appointmentId}/start`
           successMessage = 'Donation started successfully!'
           break
         case 'complete':
-          endpoint = `https://donor-pulse-backend.vercel.app/api/v1/appointments/${appointmentId}/complete`
+          endpoint = `/appointments/${appointmentId}/complete`
           successMessage = 'Donation completed successfully!'
           break
         case 'cancel':
-          endpoint = `https://donor-pulse-backend.vercel.app/api/v1/appointments/${appointmentId}/cancel`
+          endpoint = `/appointments/${appointmentId}/cancel`
           successMessage = 'Appointment cancelled successfully!'
           break
         case 'noshow':
-          endpoint = `https://donor-pulse-backend.vercel.app/api/v1/appointments/${appointmentId}/noshow`
+          endpoint = `/appointments/${appointmentId}/noshow`
           successMessage = 'Appointment marked as no-show!'
           break
       }
       
-      await axios.patch(endpoint, {}, { 
-        headers: { Authorization: `Bearer ${token}` } 
-      })
+      // Use apiClient instead of hardcoded URL
+      await apiClient.patch(endpoint, {})
       
       alert(successMessage)
       fetchAppointments() // Refresh the list
