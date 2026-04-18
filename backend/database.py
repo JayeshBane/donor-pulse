@@ -1,6 +1,7 @@
 # backend\database.py
 import asyncio
 from datetime import datetime
+import os
 
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
@@ -19,18 +20,27 @@ db = Database()
 async def connect_to_mongo():
     """Connect to MongoDB"""
     try:
-        db.client = AsyncIOMotorClient(settings.mongodb_uri)
-        db.db = db.client[settings.database_name]
+        # Use environment variable directly (not settings object for serverless)
+        mongodb_uri = os.getenv("MONGODB_URI")
+        database_name = os.getenv("DATABASE_NAME", "donor_pulse")
+        
+        if not mongodb_uri:
+            raise Exception("MONGODB_URI not set")
+        
+        db.client = AsyncIOMotorClient(mongodb_uri)
+        db.db = db.client[database_name]
         
         # Test connection
         await db.client.admin.command('ping')
-        logger.info(f"✅ Connected to MongoDB: {settings.database_name}")
+        print(f"✅ Connected to MongoDB: {database_name}")
         
         # Create indexes
         await create_indexes()
         
     except Exception as e:
-        logger.error(f"❌ MongoDB connection failed: {e}")
+        print(f"❌ MongoDB connection failed: {e}")
+        raise
+
 
 async def close_mongo_connection():
     """Close MongoDB connection"""
